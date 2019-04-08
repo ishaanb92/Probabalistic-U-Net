@@ -117,10 +117,7 @@ class ChaosLiverMR(Dataset):
 
 if __name__ == '__main__':
     # Basic sanity for the dataset class -- Run this when making any change to this code
-    tnfms = transforms.Compose([transforms.ToPILImage(),
-                                transforms.Resize(256),
-                                transforms.ToTensor()
-                                ])
+    tnfms = transforms.Compose([transforms.ToPILImage(),transforms.Resize(256),transforms.ToTensor()])
 
     chaos_dataset = ChaosLiverMR(root_dir='/home/ishaan/probablistic_u_net/data/Train_Sets/MR',
                                  mode='T2SPIR',
@@ -141,11 +138,17 @@ if __name__ == '__main__':
     for sampled_batch in dataloader:
         batch_imgs = np.array(sampled_batch['image'].numpy(),dtype=np.uint8)
         batch_labels = np.array(sampled_batch['label'].numpy(),dtype=np.uint8)
+        print(batch_imgs.shape)
         for batch_idx in range (batch_imgs.shape[0]):
-            img = batch_imgs[batch_idx,0,:,:]
-            label = batch_labels[batch_idx,0,:,:]
-            imageio.imwrite(os.path.join(test_batch_dir,'img_{}_{}.png'.format(iters,batch_idx)),img)
-            imageio.imwrite(os.path.join(test_batch_dir,'label_{}_{}.png'.format(iters,batch_idx)),label)
+            img = batch_imgs[batch_idx]
+            label = batch_labels[batch_idx]
+
+            #For display
+            img = np.transpose(img, (1,2,0))
+            label = np.transpose(label, (1,2,0))
+
+            imageio.imwrite(os.path.join(test_batch_dir,'img_{}_{}.jpg'.format(iters,batch_idx)),img)
+            imageio.imwrite(os.path.join(test_batch_dir,'label_{}_{}.jpg'.format(iters,batch_idx)),label)
 
         iters += 1
         if iters == 5:
