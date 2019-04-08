@@ -136,16 +136,20 @@ if __name__ == '__main__':
     os.makedirs(test_batch_dir)
 
     for sampled_batch in dataloader:
-        batch_imgs = np.array(sampled_batch['image'].numpy(),dtype=np.uint8)
-        batch_labels = np.array(sampled_batch['label'].numpy(),dtype=np.uint8)
+        batch_imgs = sampled_batch['image'].numpy()
+        batch_labels = sampled_batch['label'].numpy()
         print(batch_imgs.shape)
         for batch_idx in range (batch_imgs.shape[0]):
             img = batch_imgs[batch_idx]
             label = batch_labels[batch_idx]
 
-            #For display
-            img = np.transpose(img, (1,2,0))
-            label = np.transpose(label, (1,2,0))
+            #PyTorch returns image/label matrices in the range 0-1 with np.float64 format (through some internal [and undocumented] magic!)
+            print('Max image pixel value :{}'.format(np.amax(img)))
+            print('Max label pixel value :{}'.format(np.amax(label)))
+
+            #For display, re-scale image to 0-255 range
+            img = np.array(255*np.transpose(img, (1,2,0)),dtype=np.uint8)
+            label = np.array(255*np.transpose(label, (1,2,0)),dtype=np.uint8)
 
             imageio.imwrite(os.path.join(test_batch_dir,'img_{}_{}.jpg'.format(iters,batch_idx)),img)
             imageio.imwrite(os.path.join(test_batch_dir,'label_{}_{}.jpg'.format(iters,batch_idx)),label)
