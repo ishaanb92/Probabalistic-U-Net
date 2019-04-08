@@ -91,7 +91,7 @@ class ChaosLiverMR(Dataset):
 
     def __getitem__(self,index):
         img_path = self.train_image_paths[index]
-        label_path = self.train_image_paths[index]
+        label_path = self.train_label_paths[index]
 
         # Fix dtype for PIL conversion
         img = np.array(dcm.dcmread(img_path).pixel_array,dtype=np.uint8)
@@ -102,7 +102,7 @@ class ChaosLiverMR(Dataset):
         # because PyTorch transforms like 'Resize' etc.
         # operate on PIL format arrays
         img = img.reshape((img.shape[0],img.shape[1],1))
-        label = img.reshape((label.shape[0],label.shape[1],1))
+        label = label.reshape((label.shape[0],label.shape[1],1))
 
         sample = {'image':img,'label':label}
         if self.transforms is not None:
@@ -124,7 +124,7 @@ if __name__ == '__main__':
                                  transforms=tnfms)
     #DataLoader
     dataloader = DataLoader(dataset=chaos_dataset,
-                            batch_size = 4,
+                            batch_size = 1,
                             shuffle=True,
                             num_workers = 4)
 
