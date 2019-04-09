@@ -1,8 +1,8 @@
 from __future__ import print_function, division
 import os
 import torch
+import sys
 import pandas as pd
-#from skimage import io, transform
 import numpy as np
 import matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader
@@ -15,17 +15,15 @@ import pydicom as dcm
 import imageio
 
 class ChaosLiverMR(Dataset):
-    def __init__(self,root_dir=None,out_dir='./data',mode='T2SPIR',transforms=None,keep_train_prob = 0.9,renew=True):
+    def __init__(self,root_dir=None,out_dir='./data',mode='T2SPIR',transforms=None,keep_train_prob = 0.9,renew=True,train=True):
         self.root_dir = root_dir
         self.mode = mode
         self.keep_train_prob = keep_train_prob
         self.out_dir = out_dir
         self.transforms = transforms
-        if renew is True:
-            self.create_train_val_sets()
+        self.train = train
 
-
-    def create_train_val_sets(self):
+        #Init various directory paths
         self.train_dir = os.path.join(self.out_dir,'train_data')
         self.val_dir = os.path.join(self.out_dir,'val_data')
 
@@ -34,6 +32,20 @@ class ChaosLiverMR(Dataset):
 
         self.val_images_dir = os.path.join(self.val_dir,'images')
         self.val_labels_dir = os.path.join(self.val_dir,'labels')
+
+        if renew is True: #Create new train-val split
+            self.create_train_val_sets()
+
+        self.create_path_list()
+
+
+    def create_train_val_sets(self):
+        """
+        Creates folders for training and validation data
+        Splits the data into training and validation sets
+        based on keep_train_prob fraction
+
+        """
 
         if os.path.exists(self.train_dir) is True:
             shutil.rmtree(self.train_dir)
@@ -52,14 +64,10 @@ class ChaosLiverMR(Dataset):
         image_dir_list = [os.path.join(f.path,self.mode.upper(),'DICOM_anon') for f in os.scandir(self.root_dir) if f.is_dir()]
         label_dir_list = [os.path.join(f.path,self.mode.upper(),'Ground') for f in os.scandir(self.root_dir) if f.is_dir()]
 
-        num_images = 0
-        num_train = 0
-        num_val = 0
         fnames = []
         for i_dir,l_dir in zip(image_dir_list,label_dir_list):
             images = glob.glob(os.path.join(i_dir,'*.dcm'))
             for image in images:
-                num_images +=1
                 fname = image.split('/')[-1].split('.')[0]
                 fnames.append(fname)
                 label = glob.glob(os.path.join(l_dir,fname+'.*'))[0]
@@ -68,20 +76,15 @@ class ChaosLiverMR(Dataset):
         counts_dict = Counter(fnames)
 
 
-        self.num_train = int(self.keep_train_prob*len(data_dict))
-
-        self.train_image_paths = []
-        self.train_label_paths = []
+        num_train = int(self.keep_train_prob*len(data_dict))
 
         for idx,image_path in enumerate(data_dict):
 
             label_path = data_dict[image_path]
 
-            if idx <= self.num_train:
+            if idx <= num_train:
                 img_dst = os.path.join(self.train_images_dir,'img_{}.dcm'.format(idx))
                 label_dst = os.path.join(self.train_labels_dir,'lab_{}.png'.format(idx))
-                self.train_image_paths.append(img_dst)
-                self.train_label_paths.append(label_dst)
             else:
                 img_dst = os.path.join(self.val_images_dir,'img_{}.dcm'.format(idx))
                 label_dst = os.path.join(self.val_labels_dir,'lab_{}.png'.format(idx))
@@ -89,9 +92,37 @@ class ChaosLiverMR(Dataset):
             shutil.copy2(image_path,img_dst)
             shutil.copy2(label_path,label_dst)
 
+    def create_path_list(self):
+        """
+        Function to create list of image and label paths
+        that can be accesed by a numerical index in the
+        __getitem__() method
+
+        """
+        self.image_paths = []
+        self.label_paths = []
+
+        if self.train is True:
+            data_dir = self.train_dir
+        else:
+            data_dir = self.val_dir
+
+        if os.path.exists(data_dir) is False:
+            print('Train/validation data directories do no exist. Please set the renew argument to True while instancing the class')
+            sys.exit()
+
+        self.image_paths = glob.glob(os.path.join(data_dir,'images','*.dcm'))
+
+        for path in self.image_paths:
+            image_idx = path.split('/')[-1].split('.')[0].split('_')[1] # This is why I love Python!
+            self.label_paths.append(os.path.join(data_dir,'labels','lab_{}.png'.format(image_idx)))
+
+
     def __getitem__(self,index):
-        img_path = self.train_image_paths[index]
-        label_path = self.train_label_paths[index]
+
+        img_path = self.image_paths[index]
+        label_path = self.label_paths[index]
+
 
         # Fix dtype for PIL conversion
         img = np.array(dcm.dcmread(img_path).pixel_array,dtype=np.uint8)
@@ -105,6 +136,7 @@ class ChaosLiverMR(Dataset):
         label = label.reshape((label.shape[0],label.shape[1],1))
 
         sample = {'image':img,'label':label}
+
         if self.transforms is not None:
             sample['image'] = self.transforms(sample['image'])
             sample['label'] = self.transforms(sample['label'])
@@ -112,7 +144,7 @@ class ChaosLiverMR(Dataset):
         return sample
 
     def __len__(self):
-        return self.num_train
+        return len(self.image_paths)
 
 
 if __name__ == '__main__':
@@ -121,10 +153,12 @@ if __name__ == '__main__':
 
     chaos_dataset = ChaosLiverMR(root_dir='/home/ishaan/probablistic_u_net/data/Train_Sets/MR',
                                  mode='T2SPIR',
-                                 transforms=tnfms)
+                                 transforms=tnfms,
+                                 train=False,
+                                 renew=False)
     #DataLoader
     dataloader = DataLoader(dataset=chaos_dataset,
-                            batch_size = 1,
+                            batch_size = 4,
                             shuffle=True,
                             num_workers = 4)
 
