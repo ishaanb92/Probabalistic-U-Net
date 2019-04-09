@@ -15,17 +15,16 @@ import pydicom as dcm
 import imageio
 
 class ChaosLiverMR(Dataset):
-    def __init__(self,root_dir=None,out_dir='./data',mode='T2SPIR',transforms=None,keep_train_prob = 0.9,renew=True,train=True):
+    def __init__(self,root_dir='./data',mode='T2SPIR',transforms=None,keep_train_prob = 0.9,renew=True,train=True):
         self.root_dir = root_dir
         self.mode = mode
         self.keep_train_prob = keep_train_prob
-        self.out_dir = out_dir
         self.transforms = transforms
         self.train = train
 
         #Init various directory paths
-        self.train_dir = os.path.join(self.out_dir,'train_data')
-        self.val_dir = os.path.join(self.out_dir,'val_data')
+        self.train_dir = os.path.join(self.root_dir,'train_data')
+        self.val_dir = os.path.join(self.root_dir,'val_data')
 
         self.train_images_dir = os.path.join(self.train_dir,'images')
         self.train_labels_dir = os.path.join(self.train_dir,'labels')
@@ -61,8 +60,8 @@ class ChaosLiverMR(Dataset):
         data_dict = OrderedDict()
 
         # Split images into 'train' and 'val' sets
-        image_dir_list = [os.path.join(f.path,self.mode.upper(),'DICOM_anon') for f in os.scandir(self.root_dir) if f.is_dir()]
-        label_dir_list = [os.path.join(f.path,self.mode.upper(),'Ground') for f in os.scandir(self.root_dir) if f.is_dir()]
+        image_dir_list = [os.path.join(f.path,self.mode.upper(),'DICOM_anon') for f in os.scandir(os.path.join(self.root_dir,'Train_Sets','MR')) if f.is_dir()]
+        label_dir_list = [os.path.join(f.path,self.mode.upper(),'Ground') for f in os.scandir(os.path.join(self.root_dir,'Train_Sets','MR')) if f.is_dir()]
 
         fnames = []
         for i_dir,l_dir in zip(image_dir_list,label_dir_list):
@@ -151,11 +150,11 @@ if __name__ == '__main__':
     # Basic sanity for the dataset class -- Run this when making any change to this code
     tnfms = transforms.Compose([transforms.ToPILImage(),transforms.Resize(256),transforms.ToTensor()])
 
-    chaos_dataset = ChaosLiverMR(root_dir='/home/ishaan/probablistic_u_net/data/Train_Sets/MR',
+    chaos_dataset = ChaosLiverMR(root_dir='/home/ishaan/probablistic_u_net/data/',
                                  mode='T2SPIR',
                                  transforms=tnfms,
-                                 train=False,
-                                 renew=False)
+                                 train=True,
+                                 renew=True)
     #DataLoader
     dataloader = DataLoader(dataset=chaos_dataset,
                             batch_size = 4,
