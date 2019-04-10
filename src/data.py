@@ -148,6 +148,7 @@ class ChaosLiverMR(Dataset):
 
 if __name__ == '__main__':
     # Basic sanity for the dataset class -- Run this when making any change to this code
+
     tnfms = transforms.Compose([transforms.ToPILImage(),transforms.Resize(256),transforms.ToTensor()])
 
     chaos_dataset = ChaosLiverMR(root_dir='/home/ishaan/probablistic_u_net/data/',
@@ -168,6 +169,7 @@ if __name__ == '__main__':
         shutil.rmtree(test_batch_dir)
     os.makedirs(test_batch_dir)
 
+    # Generate batches and save them to a folder for viewing
     for sampled_batch in dataloader:
         batch_imgs = sampled_batch['image'].numpy()
         batch_labels = sampled_batch['label'].numpy()
