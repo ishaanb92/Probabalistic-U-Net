@@ -54,8 +54,11 @@ class DecoderBlock(nn.Module):
         self.in_channels = int(in_channels)
         self.concat_layer_depth = int(concat_layer_depth)
 
-        if interpolate:
-            raise NotImplemented('Interpolation is still a TODO')
+        if interpolate: #Implemented in the Probablistic UNet
+            self.up_sample = nn.Sequential(nn.Upsample(scale_factor=2,mode='bilinear',align_corners=True),
+                                           nn.Conv2d(in_channels=self.in_channels,out_channels=self.in_channels,kernel_size=1)
+                                          )
+
         else:
             #Depth is preserved during up-sampling in the original U-Net paper
             self.up_sample = nn.ConvTranspose2d(in_channels=self.in_channels,out_channels=self.in_channels,kernel_size=2)

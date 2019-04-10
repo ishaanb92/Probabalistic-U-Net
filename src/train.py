@@ -76,7 +76,7 @@ def train(args):
             optimizer.step()
 
             running_loss += loss.item()
-            if i%100 == 0:
+            if i%10 == 0:
                 print('[Epoch {} Iteration {}] Training loss : {}'.format(epoch,i,running_loss/100))
                 running_loss = 0.0
 
