@@ -10,6 +10,8 @@ sys.path.append(os.path.join(os.getcwd(),'src'))
 sys.path.append(os.path.join(os.getcwd(),'src','model'))
 from unet import UNet
 from data import ChaosLiverMR
+from utils import *
+import shutil
 
 def build_parser():
     parser = ArgumentParser()
@@ -17,7 +19,9 @@ def build_parser():
     parser.add_argument('--data_dir',type=str,help='Directory where train and val data exist',default='/home/ishaan/probablistic_u_net/data')
     parser.add_argument('--batch_size',type=int,help='Training batch size',default=16)
     parser.add_argument('--epochs',type=int,help='Training epochs',default=10)
-    parser.add_argument('--gpu_id',type=int,help='Supply the GPU ID (0,1 or 2 on saruman). Default behavior uses the CPU',default=-1)
+    parser.add_argument('--gpu_id',type=int,help='Supply the GPU ID (0,1 or 2 on saruman)',default=-1)
+    parser.add_argument('--renew',type=bool,help='If true, older checkpoints are deleted',default=True)
+    parser.add_argument('--checkpoint_dir',type=str,help='Directory to save model parameters',default='/home/ishaan/probablistic_u_net/checkpoints')
     args = parser.parse_args()
     return args
 
@@ -29,6 +33,15 @@ def train(args):
         device = torch.device('cuda:{}'.format(args.gpu_id))
     else:
         device = torch.device('cpu')
+
+    if args.renew is True:
+        try:
+            shutil.rmtree(args.checkpoint_dir)
+        except FileNotFoundError:
+            pass
+
+        os.makedirs(args.checkpoint_dir)
+
 
     # Instance the Dataset and Dataloader classes
     tnfms = transforms.Compose([transforms.ToPILImage(),
@@ -77,8 +90,10 @@ def train(args):
 
             running_loss += loss.item()
             if i%10 == 0:
-                print('[Epoch {} Iteration {}] Training loss : {}'.format(epoch,i,running_loss/100))
+                print('[Epoch {} Iteration {}] Training loss : {}'.format(epoch,i,running_loss/10))
                 running_loss = 0.0
+        #Save model every epoch
+        save_model(model=model,optimizer=optimizer,epoch=epoch,save_dir = args.checkpoint_dir)
 
 
 if __name__ == '__main__':

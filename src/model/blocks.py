@@ -15,7 +15,6 @@ class EncoderBlock(nn.Module):
         Parameters:
             in_channels (int): Depth (or number of channels) of the tensor that the block acts on
             filter_num (int) : Number of filters used in the convolution ops inside the block, depth of the output of the enc block
-            pool (bool) : Decides if a pooling layer is inserted at the start of the block (usually set to False for the first block in the UNet)
 
         Returns:
             out (torch.Tensor) : Output of operations performed in the block
