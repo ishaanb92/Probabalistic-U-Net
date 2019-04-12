@@ -1,10 +1,10 @@
-## PyTorch implementation of a U-Net
+## PyTorch implementation of a Probabalistic U-Net
 
-For details about the U-Net please refer to : http://arxiv.org/abs/1505.04597
+As of now, we have only implemented the basic U-Net and plan to develop utilities for data augmentation, training and inference before moving on to extending the existing U-Net model. For details about the U-Net please refer to : http://arxiv.org/abs/1505.04597
 
 In addition to the model, we also provide a PyTorch Dataset wrapper (WIP) for the [CHAOS Liver MR dataset](https://chaos.grand-challenge.org/). 
 
-Dependecies:
+Package Dependecies:
 * PyTorch
 * Numpy
 * imageio
