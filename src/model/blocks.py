@@ -53,23 +53,24 @@ class DecoderBlock(nn.Module):
         self.in_channels = int(in_channels)
         self.concat_layer_depth = int(concat_layer_depth)
 
-        if interpolate: #Implemented in the Probablistic UNet
+        if interpolate:
+            # Upsample by interpolation followed by a 1x1 convolution to obtain desired depth
             self.up_sample = nn.Sequential(nn.Upsample(scale_factor=2,mode='bilinear',align_corners=True),
                                            nn.Conv2d(in_channels=self.in_channels,out_channels=self.in_channels,kernel_size=1)
                                           )
 
         else:
-            #Depth is preserved during up-sampling in the original U-Net paper
+            # Upsample via transposed convolution (know to produce artifacts)
             self.up_sample = nn.ConvTranspose2d(in_channels=self.in_channels,out_channels=self.in_channels,kernel_size=2)
 
 
-        self.conv_block = EncoderBlock(in_channels=self.in_channels+self.concat_layer_depth,filter_num=self.filter_num)
+        self.down_sample = EncoderBlock(in_channels=self.in_channels+self.concat_layer_depth,filter_num=self.filter_num)
 
     def forward(self,x,skip_layer):
         up_sample_out = F.relu(self.up_sample(x))
         padded_up_sample_layer = self.pad_before_merge(up_sample_out,skip_layer)
         merged_out = torch.cat([padded_up_sample_layer,skip_layer],1)
-        out = F.relu(self.conv_block(merged_out))
+        out = self.down_sample(merged_out)
         return out
 
     def pad_before_merge(self,up_sample_layer,skip_layer):
