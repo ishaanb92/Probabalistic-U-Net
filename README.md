@@ -1,4 +1,4 @@
-### PyTorch implementation of a U-Net
+## PyTorch implementation of a U-Net
 
 For details about the U-Net please refer to : http://arxiv.org/abs/1505.04597
 
