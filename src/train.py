@@ -13,6 +13,7 @@ from data import ChaosLiverMR
 from utils import *
 import shutil
 from tensorboardX import SummaryWriter
+from metrics import calculate_dice_similairity
 
 def build_parser():
     parser = ArgumentParser()
@@ -114,8 +115,10 @@ def train(args):
             # Log the loss
             writer.add_scalar('Training Loss',loss.item(),len(train_dataloader)*epoch+i)
             if i%10 == 0:
-                print('[Epoch {} Iteration {}] Training loss : {}'.format(epoch,i,running_loss/10))
-                running_loss = 0.0
+                with torch.no_grad():
+                    dice_similarity_coeff = calculate_dice_similairity(outputs,labels)
+                    print('[Epoch {} Iteration {}] Training loss : {} Dice Similarity : {}'.format(epoch,i,running_loss/10,dice_similarity_coeff))
+                    running_loss = 0.0
         #Save model every epoch
         save_model(model=model,optimizer=optimizer,epoch=epoch,checkpoint_dir=args.checkpoint_dir)
 
