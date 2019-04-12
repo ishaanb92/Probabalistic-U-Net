@@ -20,7 +20,7 @@ def build_parser():
     parser.add_argument('--batch_size',type=int,help='Training batch size',default=16)
     parser.add_argument('--epochs',type=int,help='Training epochs',default=10)
     parser.add_argument('--gpu_id',type=int,help='Supply the GPU ID (0,1 or 2 on saruman)',default=-1)
-    parser.add_argument('--renew',type=bool,help='If true, older checkpoints are deleted',default=True)
+    parser.add_argument('--renew',action='store_true',help='If true, older checkpoints are deleted')
     parser.add_argument('--checkpoint_dir',type=str,help='Directory to save model parameters',default='/home/ishaan/probablistic_u_net/checkpoints')
     args = parser.parse_args()
     return args
@@ -33,14 +33,6 @@ def train(args):
         device = torch.device('cuda:{}'.format(args.gpu_id))
     else:
         device = torch.device('cpu')
-
-    if args.renew is True:
-        try:
-            shutil.rmtree(args.checkpoint_dir)
-        except FileNotFoundError:
-            pass
-
-        os.makedirs(args.checkpoint_dir)
 
 
     # Instance the Dataset and Dataloader classes
@@ -68,16 +60,32 @@ def train(args):
                                 shuffle=True,
                                 num_workers = 4)
 
-    #Instance the UNet model
+    #Instance the UNet model and optimizer
     model = UNet(image_size=256)
-    model.to(device)
+    optimizer = optim.Adam(model.parameters())
 
-    # Define the loss function and optimizer
+    #Delete/load old checkpoints
+    if args.renew is True:
+        try:
+            shutil.rmtree(args.checkpoint_dir)
+        except FileNotFoundError:
+            pass
+
+        os.makedirs(args.checkpoint_dir)
+        epoch_saved = 0
+
+    else:
+        model,optimizer,epoch_saved= load_model(model=model,
+                                                optimizer = optimizer,
+                                                checkpoint_dir=args.checkpoint_dir,
+                                                training=True)
+
+    model.to(device)
+    # Define the loss function
     criterion = nn.BCEWithLogitsLoss()
-    optimizer = optim.Adam(model.parameters(),lr=args.lr)
 
     # Start the training loop
-    for epoch in range(args.epochs):
+    for epoch in range(args.epochs - epoch_saved):
         running_loss = 0.0
         for i,data in enumerate(train_dataloader):
             images,labels = data['image'].to(device), data['label'].to(device)
@@ -93,7 +101,7 @@ def train(args):
                 print('[Epoch {} Iteration {}] Training loss : {}'.format(epoch,i,running_loss/10))
                 running_loss = 0.0
         #Save model every epoch
-        save_model(model=model,optimizer=optimizer,epoch=epoch,save_dir = args.checkpoint_dir)
+        save_model(model=model,optimizer=optimizer,epoch=epoch,checkpoint_dir=args.checkpoint_dir)
 
 
 if __name__ == '__main__':

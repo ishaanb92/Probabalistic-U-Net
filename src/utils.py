@@ -6,6 +6,8 @@ import torch
 import imageio
 import numpy as np
 import os
+import glob
+import glob
 
 def save_as_image(result_dir = None,batch=None,rescale=True,fmt='png',prefix=None):
     """
@@ -44,7 +46,7 @@ def save_as_image(result_dir = None,batch=None,rescale=True,fmt='png',prefix=Non
         imageio.imwrite(fname,image)
 
 
-def save_model(model=None,optimizer=None,epoch=None,save_dir=None):
+def save_model(model=None,optimizer=None,epoch=None,checkpoint_dir=None):
     """
     Function save the PyTorch model along with optimizer state
 
@@ -72,12 +74,12 @@ def save_model(model=None,optimizer=None,epoch=None,save_dir=None):
                  'optimizer_state_dict' : optimizer.state_dict()
                 }
 
-    save_path = os.path.join(save_dir,'checkpoint_epoch_{}.pt'.format(epoch))
+    save_path = os.path.join(checkpoint_dir,'checkpoint_epoch_{}.pt'.format(epoch))
 
     torch.save(save_dict,save_path)
 
 
-def load_model(model=None,optimizer = None,save_dir=None,training=False):
+def load_model(model=None,optimizer=None,checkpoint_dir=None,training=False):
     """
     Function to load the PyTorch model
 
@@ -88,13 +90,17 @@ def load_model(model=None,optimizer = None,save_dir=None,training=False):
 
     Returns:
         model (torch.nn.Module): Model object with after loading the trainable parameters
-        optimizer (torch.optim object) : Optimizer with hyper-parameters picked up from checkpoint. 'None' if training is False
         epoch (int) : Epoch where the model was frozen. None if training is false
+        checkpoint(Python dictionary) : Dictionary that saves the state
 
     """
-    save_path = glob.glob(os.path.join(save_dir,'*.pt'))
-    #TODO: Handle case where multiple checkpoint (from different epochs) are present
-    checkpoints = torch.load(save_path)
+    checkpoint_file_paths = glob.glob(os.path.join(checkpoint_dir,'*.pt'))
+
+    most_recent_checkpoint_file_path = select_last_checkpoint(checkpoint_file_paths)
+
+
+    checkpoint = torch.load(most_recent_checkpoint_file_path)
+
     model.load_state_dict(checkpoint['model_state_dict'])
 
     if training is True:
@@ -106,6 +112,21 @@ def load_model(model=None,optimizer = None,save_dir=None,training=False):
 
     return model,optimizer,epoch
 
+def select_last_checkpoint(file_list):
+    """
+    Given a list of checkpoint files, selects the
+    most recent checkpoint. The checkpoints are saved
+    in the following format : PATH/checkpoint_epoch_<epoch_id>
 
+    Parameters:
+        file_list (Pyton list) : List of file paths to different checkpoint files
+
+    Returns:
+        last_checkpoint_file (str or Path object) : Path to the last saved checkpoint
+
+    """
+    epochs = [int(fname.split('/')[-1].split('.')[0].split('_')[-1]) for fname in file_list]
+    index_latest_checkpoint = epochs.index(max(epochs))
+    return file_list[index_latest_checkpoint]
 
 
