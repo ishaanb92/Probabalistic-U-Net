@@ -46,7 +46,7 @@ def calculate_dice_similairity(seg,gt):
 
     eps = 0.0001 #For numerical stability
 
-    dice_similarity_coeff = (2*inter.astype(float))/(union.astype(float) + eps)
+    dice_similarity_coeff = (2*inter.astype(float) + eps)/(union.astype(float) + eps)
 
     return dice_similarity_coeff
 
