@@ -34,7 +34,6 @@ def train(args):
     else:
         device = torch.device('cpu')
 
-
     # Instance the Dataset and Dataloader classes
     tnfms = transforms.Compose([transforms.ToPILImage(),
                                 transforms.Resize(256),
@@ -80,12 +79,21 @@ def train(args):
                                                 checkpoint_dir=args.checkpoint_dir,
                                                 training=True)
 
+    # Move the optimizer to the GPU if the model resides on it
+    # See: https://github.com/pytorch/pytorch/issues/2830
+    if args.gpu_id>=0:
+        for state in optimizer.state.values():
+            for k, v in state.items():
+                if torch.is_tensor(v):
+                    state[k] = v.to(device)
+
     model.to(device)
+
     # Define the loss function
     criterion = nn.BCEWithLogitsLoss()
 
     # Start the training loop
-    for epoch in range(args.epochs - epoch_saved):
+    for epoch in range(epoch_saved,args.epochs):
         running_loss = 0.0
         for i,data in enumerate(train_dataloader):
             images,labels = data['image'].to(device), data['label'].to(device)

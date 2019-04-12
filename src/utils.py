@@ -129,4 +129,3 @@ def select_last_checkpoint(file_list):
     index_latest_checkpoint = epochs.index(max(epochs))
     return file_list[index_latest_checkpoint]
 
-
