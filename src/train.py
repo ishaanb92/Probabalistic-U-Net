@@ -12,6 +12,7 @@ from unet import UNet
 from data import ChaosLiverMR
 from utils import *
 import shutil
+from tensorboardX import SummaryWriter
 
 def build_parser():
     parser = ArgumentParser()
@@ -22,6 +23,7 @@ def build_parser():
     parser.add_argument('--gpu_id',type=int,help='Supply the GPU ID (0,1 or 2 on saruman)',default=-1)
     parser.add_argument('--renew',action='store_true',help='If true, older checkpoints are deleted')
     parser.add_argument('--checkpoint_dir',type=str,help='Directory to save model parameters',default='/home/ishaan/probablistic_u_net/checkpoints')
+    parser.add_argument('--log_dir',type=str,help='Directory to store tensorboard logs',default='./logs')
     args = parser.parse_args()
     return args
 
@@ -79,7 +81,8 @@ def train(args):
                                                 checkpoint_dir=args.checkpoint_dir,
                                                 training=True)
 
-    # Move the optimizer to the GPU if the model resides on it
+    # The optimizer and model must reside on the same device.
+    # optimizer.to(device) method does not exist, therefore for an optimizer loaded from disk, we need to manually copy it over.
     # See: https://github.com/pytorch/pytorch/issues/2830
     if args.gpu_id>=0:
         for state in optimizer.state.values():
@@ -91,6 +94,9 @@ def train(args):
 
     # Define the loss function
     criterion = nn.BCEWithLogitsLoss()
+
+    # Set up logging
+    writer = SummaryWriter(os.path.join(args.log_dir,'exp_{}'.format(args.lr)))
 
     # Start the training loop
     for epoch in range(epoch_saved,args.epochs):
@@ -105,12 +111,15 @@ def train(args):
             optimizer.step()
 
             running_loss += loss.item()
+            # Log the loss
+            writer.add_scalar('Training Loss',loss.item(),len(train_dataloader)*epoch+i)
             if i%10 == 0:
                 print('[Epoch {} Iteration {}] Training loss : {}'.format(epoch,i,running_loss/10))
                 running_loss = 0.0
         #Save model every epoch
         save_model(model=model,optimizer=optimizer,epoch=epoch,checkpoint_dir=args.checkpoint_dir)
 
+    writer.close()
 
 if __name__ == '__main__':
     args = build_parser()
