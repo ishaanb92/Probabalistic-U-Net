@@ -4,11 +4,11 @@ As of now, we have only implemented the basic U-Net and plan to develop utilitie
 
 In addition to the model, we also provide a PyTorch Dataset wrapper (WIP) for the [CHAOS Liver MR dataset](https://chaos.grand-challenge.org/). 
 
-Package Dependecies:
-* PyTorch
-* Numpy
-* imageio
-* Tensorflow (To use [tensorboardX](https://github.com/lanpa/tensorboardX) for viz)
+Packages used and their versions:
+* PyTorch 1.0.1
+* Numpy 1.15.4
+* imageio 2.5.0
+* Tensorflow 1.13.1 (To use [tensorboardX](https://github.com/lanpa/tensorboardX) for viz)
 
 
 This project is a WIP. The goal is to have a stable implementation of the [Probablistic U-Net](https://arxiv.org/abs/1806.05034)
@@ -19,10 +19,11 @@ TODO
 
 
 #### Pending tasks:
-* Segmentation metrics
-* Track training v/s validation losses
+* Write function to calculate dice similarity between predicted seg-map and ground truth
+* Track loss on train data v/s loss on val data during training
+* Display images,predicted segmentations and ground truth for better debugging and performance analysis  
 * Additional data augmentation using [gryds](https://github.com/tueimage/gryds)
-* Hyper-parameter tuning
+* Hyper-parameter/architecture tuning
 * Implementing Prior and Posterior nets for Prob. U-Net
 
 Code has been tested on Python 3.7.2
