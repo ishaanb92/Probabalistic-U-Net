@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
+import torchvision.transforms.functional as TF
 import glob
 from collections import OrderedDict
 from collections import Counter
@@ -21,6 +22,14 @@ class ChaosLiverMR(Dataset):
         self.keep_train_prob = keep_train_prob
         self.transforms = transforms
         self.train = train
+
+        # Intensity intervals for different classes:
+        # 1. Liver
+        # 2. Right Kidney
+        # 3. Left Kidnet
+        # 4. Spleen
+
+        self.class_intervals = [(55,70),(110,135),(175,200),(240,255)]
 
         #Init various directory paths
         self.train_dir = os.path.join(self.root_dir,'train_data')
@@ -117,6 +126,7 @@ class ChaosLiverMR(Dataset):
             self.label_paths.append(os.path.join(data_dir,'labels','lab_{}.png'.format(image_idx)))
 
 
+
     def __getitem__(self,index):
 
         img_path = self.image_paths[index]
@@ -136,20 +146,50 @@ class ChaosLiverMR(Dataset):
 
         sample = {'image':img,'label':label}
 
+        num_classes = len(self.class_intervals)
+
+
         if self.transforms is not None:
+
+            # Convert to PIL + Resize
             sample['image'] = self.transforms(sample['image'])
-            sample['label'] = self.transforms(sample['label'])
+            transformed_label_gray = np.array(self.transforms(sample['label']),dtype=np.uint8)
+            # Split the single grayscale image into per-class binary maps
+            class_maps = np.zeros((num_classes,transformed_label_gray.shape[0],transformed_label_gray.shape[1]))
+            for class_id,interval in enumerate(self.class_intervals):
+                class_maps[class_id,:,:] = self.create_class_seg_map(label_gray=transformed_label_gray,intensity_interval = interval)
+
+            # Transform to PyTorch tensor
+            sample['image'] = TF.to_tensor(sample['image'])
+            sample['label'] = class_maps
 
         return sample
 
     def __len__(self):
         return len(self.image_paths)
 
+    def create_class_seg_map(self,label_gray,intensity_interval = []):
+        """
+        Convert a single channel grayscale image to a multi-channel (=num classes)
+        binary image
+
+        Parameters:
+            label_gray (np.array) : Gray-scale label image
+            intesity_interval (Python list or tuple) : Interval to threshold
+        Return:
+            class_seg_map (np.array) : Segmentation map for the class
+
+        """
+        cond = np.logical_and((label_gray[:,:] > intensity_interval[0]),(label_gray[:,:] <= intensity_interval[1]))
+        class_seg_map = np.array(cond,dtype=np.uint8)
+        return class_seg_map
+
+
 
 if __name__ == '__main__':
     # Basic sanity for the dataset class -- Run this when making any change to this code
 
-    tnfms = transforms.Compose([transforms.ToPILImage(),transforms.Resize(256),transforms.ToTensor()])
+    tnfms = transforms.Compose([transforms.ToPILImage(),transforms.Resize(256)])
 
     chaos_dataset = ChaosLiverMR(root_dir='/home/ishaan/probablistic_u_net/data/',
                                  mode='T2SPIR',
@@ -173,21 +213,23 @@ if __name__ == '__main__':
     for sampled_batch in dataloader:
         batch_imgs = sampled_batch['image'].numpy()
         batch_labels = sampled_batch['label'].numpy()
-        print(batch_imgs.shape)
+        print('Label batch shape : {}'.format(batch_labels.shape))
+        print('Image batch shape : {}'.format(batch_imgs.shape))
         for batch_idx in range (batch_imgs.shape[0]):
             img = batch_imgs[batch_idx]
             label = batch_labels[batch_idx]
+            print('Max pixel value in seg map : {}'.format(np.amax(label[0,:,:])))
+            print('Max pixel value in background map : {}'.format(np.amax(label[1,:,:])))
 
             #PyTorch returns image/label matrices in the range 0-1 with np.float64 format (through some internal [and undocumented] magic!)
-            print('Max image pixel value :{}'.format(np.amax(img)))
-            print('Max label pixel value :{}'.format(np.amax(label)))
 
             #For display, re-scale image to 0-255 range
             img = np.array(255*np.transpose(img, (1,2,0)),dtype=np.uint8)
             label = np.array(255*np.transpose(label, (1,2,0)),dtype=np.uint8)
 
             imageio.imwrite(os.path.join(test_batch_dir,'img_{}_{}.jpg'.format(iters,batch_idx)),img)
-            imageio.imwrite(os.path.join(test_batch_dir,'label_{}_{}.jpg'.format(iters,batch_idx)),label)
+            imageio.imwrite(os.path.join(test_batch_dir,'label_{}_{}_seg.jpg'.format(iters,batch_idx)),label[:,:,0])
+            imageio.imwrite(os.path.join(test_batch_dir,'label_{}_{}_back.jpg'.format(iters,batch_idx)),label[:,:,1])
 
         iters += 1
         if iters == 5:

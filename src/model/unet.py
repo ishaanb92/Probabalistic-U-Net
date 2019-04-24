@@ -16,7 +16,7 @@ from math import pow
 
 class UNet(nn.Module):
 
-    def __init__(self,image_size=128,n_channels=1,base_filter_num=64,num_blocks=4,num_classes=1):
+    def __init__(self,image_size=128,n_channels=1,base_filter_num=64,num_blocks=4,num_classes=4):
         """
         PyTorch class definition for the U-Net architecture for image segmentation
 
@@ -33,12 +33,13 @@ class UNet(nn.Module):
         """
         super(UNet,self).__init__()
 
-        self.image_shape = (int(image_size),int(image_size))
+        self.output_shape = (int(image_size),int(image_size))
         self.contracting_path = nn.ModuleList()
         self.expanding_path = nn.ModuleList()
 
         self.num_blocks = num_blocks
         self.n_channels = int(n_channels)
+        self.n_classes = int(num_classes)
         self.base_filter_num = int(base_filter_num)
         self.enc_layer_depths = [] #Keep track of the output depths of each encoder block
 
@@ -66,7 +67,7 @@ class UNet(nn.Module):
             self.expanding_path.append(DecoderBlock(in_channels=dec_in_channels,filter_num=self.enc_layer_depths[-1-block_id],concat_layer_depth=self.enc_layer_depths[-1-block_id],interpolate=True))
 
         #Output Layer
-        self.output = nn.Conv2d(in_channels=int(self.enc_layer_depths[0]),out_channels=self.n_channels,kernel_size=1)
+        self.output = nn.Conv2d(in_channels=int(self.enc_layer_depths[0]),out_channels=self.n_classes,kernel_size=1)
 
     def forward(self,x):
         #Encoder
@@ -87,7 +88,7 @@ class UNet(nn.Module):
         x = self.output(x)
 
         #Interpolate to match the size of seg-map
-        out = F.interpolate(input=x,size=self.image_shape,mode='bilinear',align_corners=True)
+        out = F.interpolate(input=x,size=self.output_shape,mode='bilinear',align_corners=True)
 
         return out
 

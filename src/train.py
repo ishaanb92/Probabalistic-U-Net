@@ -19,7 +19,7 @@ def build_parser():
     parser = ArgumentParser()
     parser.add_argument('--lr',type=float,help='Initial learning rate for optimization',default=3e-3)
     parser.add_argument('--data_dir',type=str,help='Directory where train and val data exist',default='/home/ishaan/probablistic_u_net/data')
-    parser.add_argument('--batch_size',type=int,help='Training batch size',default=16)
+    parser.add_argument('--batch_size',type=int,help='Training batch size',default=4)
     parser.add_argument('--epochs',type=int,help='Training epochs',default=10)
     parser.add_argument('--gpu_id',type=int,help='Supply the GPU ID (0,1 or 2 on saruman)',default=-1)
     parser.add_argument('--renew',action='store_true',help='If true, older checkpoints are deleted')
@@ -39,8 +39,7 @@ def train(args):
 
     # Instance the Dataset and Dataloader classes
     tnfms = transforms.Compose([transforms.ToPILImage(),
-                                transforms.Resize(256),
-                                transforms.ToTensor()])
+                                transforms.Resize(256)])
 
     train_dataset = ChaosLiverMR(root_dir = args.data_dir,
                                  transforms=tnfms,
@@ -63,7 +62,7 @@ def train(args):
                                 num_workers = 4)
 
     #Instance the UNet model and optimizer
-    model = UNet(image_size=256)
+    model = UNet(image_size=256,num_classes=4)
     optimizer = optim.Adam(model.parameters())
 
     #Delete/load old checkpoints
@@ -103,7 +102,7 @@ def train(args):
     for epoch in range(epoch_saved,args.epochs):
         running_loss = 0.0
         for i,data in enumerate(train_dataloader):
-            images,labels = data['image'].to(device), data['label'].to(device)
+            images,labels = data['image'].to(device).float(), data['label'].to(device).float()
 
             optimizer.zero_grad() #Clear gradient buffers
             outputs = model(images)
