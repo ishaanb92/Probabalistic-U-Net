@@ -115,8 +115,11 @@ def train(args):
             writer.add_scalar('Training Loss',loss.item(),len(train_dataloader)*epoch+i)
             if i%10 == 0:
                 with torch.no_grad():
-                    dice_similarity_coeff = calculate_dice_similairity(outputs,labels)
-                    print('[Epoch {} Iteration {}] Training loss : {} Dice Similarity : {}'.format(epoch,i,running_loss/10,dice_similarity_coeff))
+                    dice_similarity_coeff = []
+                    for class_id in range(4):
+                        dice_similarity_coeff.append(calculate_dice_similairity(outputs[class_id],labels[class_id]))
+
+                    print('[Epoch {} Iteration {}] Training loss : {} Per-class Dice Similarity : {} Mean dice sim : {}'.format(epoch,i,running_loss/10,dice_similarity_coeff,np.mean(np.array(dice_similarity_coeff))))
                     running_loss = 0.0
         #Save model every epoch
         save_model(model=model,optimizer=optimizer,epoch=epoch,checkpoint_dir=args.checkpoint_dir)

@@ -28,7 +28,7 @@ class ChaosLiverMR(Dataset):
         # 2. Right Kidney
         # 3. Left Kidnet
         # 4. Spleen
-
+        # Interval values taken from : https://github.com/jonasteuwen/chaos-challenge/blob/master/build_chaos_dataset.py
         self.class_intervals = [(55,70),(110,135),(175,200),(240,255)]
 
         #Init various directory paths
@@ -151,9 +151,12 @@ class ChaosLiverMR(Dataset):
 
         if self.transforms is not None:
 
-            # Convert to PIL + Resize
+            # Convert to PIL + Resize image
             sample['image'] = self.transforms(sample['image'])
+
+            # PIL + Resize + numpy() for label for further splitting into class maps
             transformed_label_gray = np.array(self.transforms(sample['label']),dtype=np.uint8)
+
             # Split the single grayscale image into per-class binary maps
             class_maps = np.zeros((num_classes,transformed_label_gray.shape[0],transformed_label_gray.shape[1]))
             for class_id,interval in enumerate(self.class_intervals):
