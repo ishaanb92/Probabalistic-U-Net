@@ -21,7 +21,8 @@ TODO
 #### Pending tasks:
 * <strike>Write function to calculate dice similarity between predicted seg-map and ground truth</strike>
 * <strike>Track loss on train data v/s loss on val data during training</strike> 
-* Display images,predicted segmentations and ground truth for better debugging and performance analysis  
+* <strike>Display images,predicted segmentations and ground truth for better debugging and performance analysis</strike>
+* Fix pre-processing for ground truth maps to make sure intensities in the maps sum up to 1 along channel axis
 * Additional data augmentation using [gryds](https://github.com/tueimage/gryds)
 * Hyper-parameter/architecture tuning
 * Implementing Prior and Posterior nets for Prob. U-Net
