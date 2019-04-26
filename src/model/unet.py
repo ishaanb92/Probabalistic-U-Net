@@ -90,7 +90,7 @@ class UNet(nn.Module):
         #Interpolate to match the size of seg-map
         out = F.interpolate(input=x,size=self.output_shape,mode='bilinear',align_corners=True)
 
-        return out
+        return F.sigmoid(out)
 
 
 

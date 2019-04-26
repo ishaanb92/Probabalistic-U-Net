@@ -7,7 +7,6 @@ import imageio
 import numpy as np
 import os
 import glob
-import glob
 
 def save_as_image(result_dir = None,batch=None,rescale=True,fmt='png',prefix=None):
     """

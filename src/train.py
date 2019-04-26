@@ -17,7 +17,7 @@ from metrics import calculate_dice_similairity
 
 def build_parser():
     parser = ArgumentParser()
-    parser.add_argument('--lr',type=float,help='Initial learning rate for optimization',default=3e-3)
+    parser.add_argument('--lr',type=float,help='Initial learning rate for optimization',default=1e-4)
     parser.add_argument('--data_dir',type=str,help='Directory where train and val data exist',default='/home/ishaan/probablistic_u_net/data')
     parser.add_argument('--batch_size',type=int,help='Training batch size',default=4)
     parser.add_argument('--epochs',type=int,help='Training epochs',default=10)
@@ -46,7 +46,7 @@ def train(args):
                                  renew=False)
 
     val_dataset = ChaosLiverMR(root_dir=args.data_dir,
-                               transforms=None,
+                               transforms=tnfms,
                                train=False,
                                renew=False)
 
@@ -93,7 +93,7 @@ def train(args):
     model.to(device)
 
     # Define the loss function
-    criterion = nn.BCEWithLogitsLoss()
+    criterion = nn.BCELoss()
 
     # Set up logging
     writer = SummaryWriter(os.path.join(args.log_dir,'exp_{}'.format(args.lr)))
@@ -113,14 +113,41 @@ def train(args):
             running_loss += loss.item()
             # Log the loss
             writer.add_scalar('Training Loss',loss.item(),len(train_dataloader)*epoch+i)
-            if i%10 == 0:
+            if i%50 == 0:
                 with torch.no_grad():
-                    dice_similarity_coeff = []
-                    for class_id in range(4):
-                        dice_similarity_coeff.append(calculate_dice_similairity(outputs[class_id],labels[class_id]))
+                    train_per_class_dice = []
+                    for class_id in range(labels.shape[1]):
+                        train_per_class_dice.append(calculate_dice_similairity(seg=outputs[:,class_id,:,:],gt=labels[:,class_id,:,:]))
 
-                    print('[Epoch {} Iteration {}] Training loss : {} Per-class Dice Similarity : {} Mean dice sim : {}'.format(epoch,i,running_loss/10,dice_similarity_coeff,np.mean(np.array(dice_similarity_coeff))))
+                    # Calculate validation loss and metrics
+                    val_loss = []
+                    val_dice_scores = []
+                    for _,val_data in enumerate(val_dataloader):
+                        val_images,val_labels = val_data['image'].to(device).float(),val_data['label'].to(device).float()
+                        val_outputs = model(val_images)
+                        val_loss.append(criterion(val_outputs,val_labels).item())
+
+                        per_class_val_dice_score = []
+
+                        for class_id in range(val_labels.shape[1]):
+                            per_class_val_dice_score.append(calculate_dice_similairity(seg=val_outputs[:,class_id,:,:],gt=val_labels[:,class_id,:,:]))
+
+                        val_dice_scores.append(np.array(per_class_val_dice_score))
+
+                    mean_train_loss = running_loss/50
+                    mean_val_loss = np.mean(np.array(val_loss))
+
+                    mean_train_dice = np.mean(np.array(train_per_class_dice))
+                    mean_val_per_class_dice = np.mean(np.array(val_dice_scores),axis=0)
+                    mean_val_dice = np.mean(np.array(val_dice_scores),axis=None)
+
+                    print('[Epoch {} Iteration {}] Training loss : {} Validation loss : {}'.format(epoch,i,mean_train_loss,mean_val_loss))
+                    print('[Epoch {} Iteration {}] (Training) Mean Dice Metric : {} Per-class dice metric : {}'.format(epoch,i,mean_train_dice,train_per_class_dice))
+                    print('[Epoch {} Iteration {}] (Validation) Mean Dice Metric : {} Per-class dice metric : {}'.format(epoch,i,mean_val_dice,mean_val_per_class_dice))
+                    print('\n')
+
                     running_loss = 0.0
+
         #Save model every epoch
         save_model(model=model,optimizer=optimizer,epoch=epoch,checkpoint_dir=args.checkpoint_dir)
 
