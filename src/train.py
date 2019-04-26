@@ -25,12 +25,16 @@ def build_parser():
     parser.add_argument('--renew',action='store_true',help='If true, older checkpoints are deleted')
     parser.add_argument('--checkpoint_dir',type=str,help='Directory to save model parameters',default='/home/ishaan/probablistic_u_net/checkpoints')
     parser.add_argument('--log_dir',type=str,help='Directory to store tensorboard logs',default='./logs')
+    parser.add_argument('--seed',type=int,help='Fix seed for reproducibility',default=42)
     args = parser.parse_args()
     return args
 
 
 def train(args):
 
+
+
+    torch.manual_seed(args.seed)
 
     if args.gpu_id >= 0:
         device = torch.device('cuda:{}'.format(args.gpu_id))
@@ -61,6 +65,10 @@ def train(args):
                                 shuffle=True,
                                 num_workers = 4)
 
+
+    train_results_dir = os.path.join(args.log_dir,'visualizations','train_preds')
+    val_results_dir = os.path.join(args.log_dir,'visualizations','val_preds')
+
     #Instance the UNet model and optimizer
     model = UNet(image_size=256,num_classes=4)
     optimizer = optim.Adam(model.parameters())
@@ -72,7 +80,19 @@ def train(args):
         except FileNotFoundError:
             pass
 
+        try:
+            shutil.rmtree(train_results_dir)
+        except FileNotFoundError:
+            pass
+
+        try:
+            shutil.rmtree(val_results_dir)
+        except FileNotFoundError:
+            pass
+
         os.makedirs(args.checkpoint_dir)
+        os.makedirs(train_results_dir)
+        os.makedirs(val_results_dir)
         epoch_saved = 0
 
     else:
@@ -101,6 +121,7 @@ def train(args):
     # Start the training loop
     for epoch in range(epoch_saved,args.epochs):
         running_loss = 0.0
+
         for i,data in enumerate(train_dataloader):
             images,labels = data['image'].to(device).float(), data['label'].to(device).float()
 
@@ -115,6 +136,14 @@ def train(args):
             writer.add_scalar('Training Loss',loss.item(),len(train_dataloader)*epoch+i)
             if i%50 == 0:
                 with torch.no_grad():
+
+                    # Visualize results
+                    save_as_image(result_dir=train_results_dir,
+                                  image_batch=images,
+                                  label_batch = labels,
+                                  preds_batch = outputs,
+                                  prefix = 'train_epoch_{}_iter_{}'.format(epoch,i))
+
                     train_per_class_dice = []
                     for class_id in range(labels.shape[1]):
                         train_per_class_dice.append(calculate_dice_similairity(seg=outputs[:,class_id,:,:],gt=labels[:,class_id,:,:]))
@@ -122,10 +151,16 @@ def train(args):
                     # Calculate validation loss and metrics
                     val_loss = []
                     val_dice_scores = []
-                    for _,val_data in enumerate(val_dataloader):
+                    for val_idx,val_data in enumerate(val_dataloader):
                         val_images,val_labels = val_data['image'].to(device).float(),val_data['label'].to(device).float()
                         val_outputs = model(val_images)
                         val_loss.append(criterion(val_outputs,val_labels).item())
+                        save_as_image(result_dir=val_results_dir,
+                                      image_batch=val_images,
+                                      label_batch = val_labels,
+                                      preds_batch = val_outputs,
+                                      prefix = 'val_epoch_{}_iter_{}_idx_{}'.format(epoch,i,val_idx))
+
 
                         per_class_val_dice_score = []
 

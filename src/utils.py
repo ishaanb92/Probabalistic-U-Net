@@ -8,14 +8,17 @@ import numpy as np
 import os
 import glob
 
-def save_as_image(result_dir = None,batch=None,rescale=True,fmt='png',prefix=None):
+def save_as_image(result_dir = None,image_batch=None,label_batch=None,preds_batch=None,fmt='png',prefix=None,n_channels=1,n_classes=4):
     """
-    Function save a batch of tensors as images
+    Take a batch of tensors (images, labels and predictions) and save the batch
+    as a collection of image grids, each image grid being one image-label-prediction
+    triplet from a single member of the batch.
 
     Parameters:
         result_dir (str or Path object) : Directory to store the images
-        batch (torch.Tensor) : Image batch to be saved (batch_size x channels x height x width)
-        rescale (bool) : If true, pixel values scaled to 0-255 (uint8)
+        image_batch (torch.Tensor) : Image batch to be saved (batch_size x channels x height x width)
+        label_batch (torch.Tensor) : Ground truth maps batch to be saved (batch_size x n_classes x height x width)
+        preds_batch (torch.Tensor) : Model predictions batch to be saved (batch_size x n_classes x height x width)
         fmt (str) : Extension used to save the image
         prefix (str) : Used a prefix in the filename under which the image is saved
 
@@ -27,22 +30,67 @@ def save_as_image(result_dir = None,batch=None,rescale=True,fmt='png',prefix=Non
     if os.path.exists(result_dir) is False:
         os.makedirs(result_dir)
 
-
     #Convert torch tensors to numpy ndarray
-    batch = batch.numpy()
+    image_batch = image_batch.cpu().numpy()
+    label_batch = label_batch.cpu().numpy()
+    preds_batch = preds_batch.cpu().numpy()
 
-    if rescale is True:
-        batch = np.array(np.multiply(batch,255),dtype=np.uint8)
-    else:
-        batch = np.array(batch,dtype=np.uint8)
+    # Adjust dynamic range while converting to np.uint8
+    # to avoid loss compression
+    image_batch = adjust_dynamic_range(image=image_batch)
+    label_batch = adjust_dynamic_range(image=label_batch)
+    preds_batch = adjust_dynamic_range(image=preds_batch)
 
     # [C,H,W] -> [H,W,C]
-    batch = batch.transpose((3,2,1))
+    image_batch = image_batch.transpose((0,3,2,1))
+    label_batch = label_batch.transpose((0,3,2,1))
+    preds_batch = preds_batch.transpose((0,3,2,1))
 
-    for image_idx in range(batch.shape[0]):
-        image = batch[image_idx,:,:,:]
-        fname = os.path.join(result_dir,'{}_{}.{}'.format(prefix,image_idx,fmt))
-        imageio.imwrite(fname,image)
+    h,w = image_batch.shape[1],image_batch.shape[2]
+
+    for batch_idx in range(image_batch.shape[0]):
+        image = image_batch[batch_idx,:,:,:]
+        labels = label_batch[batch_idx,:,:,:]
+        preds = preds_batch[batch_idx,:,:,:]
+
+        #Init empty grid as np array
+        image_grid = np.zeros((3*h,n_classes*w,n_channels),dtype=np.uint8)
+
+        #Add image at the top
+        image_grid[0:h,0:w,:] = image
+
+        #Add grount truth and predicted maps
+        for class_id in range(n_classes):
+            image_grid[h:2*h,class_id*w:(class_id+1)*w,0] = labels[:,:,class_id]
+            image_grid[2*h:3*h,class_id*w:(class_id+1)*w,0] = preds[:,:,class_id]
+
+        #Save the image grid
+        fname = os.path.join(result_dir,'{}_{}.{}'.format(prefix,batch_idx,fmt))
+
+        imageio.imwrite(fname,image_grid)
+
+
+def adjust_dynamic_range(image):
+    """
+    Images need to saved with uint8 intensity values.
+    The pytorch model internall uses float32 or float64 representation,
+    leading to lossy compression while saving the image
+
+    Reference: https://stackoverflow.com/questions/46689428/convert-np-array-of-type-float64-to-type-uint8-scaling-values
+
+    Parameters:
+        image (np.ndarray): A single image or batch of images
+
+    Returns:
+        adjusted_image (np.ndarray) : np.uint8 image with intensity values in range [0,255]
+
+
+    """
+    eps = 0.0001 #For numerical stability
+    image = image.astype(np.float64)/(np.amax(image,axis=None) + eps)
+    image = 255*image
+    adjusted_image = image.astype(np.uint8)
+    return adjusted_image
 
 
 def save_model(model=None,optimizer=None,epoch=None,checkpoint_dir=None):
