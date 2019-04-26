@@ -20,7 +20,7 @@ TODO
 
 #### Pending tasks:
 * <strike>Write function to calculate dice similarity between predicted seg-map and ground truth</strike>
-* Track loss on train data v/s loss on val data during training
+* <strike>Track loss on train data v/s loss on val data during training</strike> 
 * Display images,predicted segmentations and ground truth for better debugging and performance analysis  
 * Additional data augmentation using [gryds](https://github.com/tueimage/gryds)
 * Hyper-parameter/architecture tuning
