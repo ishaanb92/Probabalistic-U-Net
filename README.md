@@ -22,7 +22,7 @@ TODO
 * <strike>Write function to calculate dice similarity between predicted seg-map and ground truth</strike>
 * <strike>Track loss on train data v/s loss on val data during training</strike> 
 * <strike>Display images,predicted segmentations and ground truth for better debugging and performance analysis</strike>
-*  Creation of groud truth segmentation maps from label images needs to be fixed. For correct normalization (across all classes), a background class is needed
+*  <strike>Creation of groud truth segmentation maps from label images needs to be fixed. For correct normalization (across all classes), a background class is needed</strike> 
 * Additional data augmentation using [gryds](https://github.com/tueimage/gryds)
 * Hyper-parameter/architecture tuning
 * Implementing Prior and Posterior nets for Prob. U-Net
