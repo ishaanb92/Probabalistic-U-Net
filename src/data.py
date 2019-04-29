@@ -164,9 +164,10 @@ class ChaosLiverMR(Dataset):
 
             # Transform to PyTorch tensor
             sample['image'] = TF.to_tensor(sample['image'])
-            sample['label'] = class_maps
+            sample['label'] = self.append_background_map(class_maps)
 
         return sample
+
 
     def __len__(self):
         return len(self.image_paths)
@@ -187,6 +188,35 @@ class ChaosLiverMR(Dataset):
         class_seg_map = np.array(cond,dtype=np.uint8)
         return class_seg_map
 
+    def append_background_map(self,class_maps):
+        """
+        Create a segmentation map for the background and
+        append it to the label matrix
+
+        Parameters:
+            class_maps (numpy ndarray) : Binary segmentation maps for all classes
+
+        Returns:
+            class_map_with_background (numpy ndarray) : Complete label for segmentation
+
+        """
+        num_classes = class_maps.shape[0]
+
+        background_map = np.zeros((class_maps.shape[1],class_maps.shape[2]))
+
+        # What we need is a NOR operation for matrices with binary values (0 or 1)
+        for class_id in range(num_classes):
+            background_map += class_maps[class_id,:,:]
+
+        background_map = 1 - background_map
+
+        map_h,map_w = background_map.shape
+
+        background_map = np.reshape(background_map.ravel(),(1,map_h,map_w))
+
+        class_map_with_background = np.concatenate((background_map,class_maps),axis=0)
+
+        return class_map_with_background
 
 
 if __name__ == '__main__':

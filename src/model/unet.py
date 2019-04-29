@@ -67,7 +67,7 @@ class UNet(nn.Module):
             self.expanding_path.append(DecoderBlock(in_channels=dec_in_channels,filter_num=self.enc_layer_depths[-1-block_id],concat_layer_depth=self.enc_layer_depths[-1-block_id],interpolate=True))
 
         #Output Layer
-        self.output = nn.Conv2d(in_channels=int(self.enc_layer_depths[0]),out_channels=self.n_classes,kernel_size=1)
+        self.output = nn.Conv2d(in_channels=int(self.enc_layer_depths[0]),out_channels= (self.n_classes + 1), kernel_size=1)
 
     def forward(self,x):
         #Encoder

@@ -8,7 +8,7 @@ import numpy as np
 import os
 import glob
 
-def save_as_image(result_dir = None,image_batch=None,label_batch=None,preds_batch=None,fmt='png',prefix=None,n_channels=1,n_classes=4):
+def save_as_image(result_dir = None,image_batch=None,label_batch=None,preds_batch=None,fmt='png',prefix=None,n_channels=1):
     """
     Take a batch of tensors (images, labels and predictions) and save the batch
     as a collection of image grids, each image grid being one image-label-prediction
@@ -47,6 +47,8 @@ def save_as_image(result_dir = None,image_batch=None,label_batch=None,preds_batc
     preds_batch = preds_batch.transpose((0,3,2,1))
 
     h,w = image_batch.shape[1],image_batch.shape[2]
+
+    n_classes = label_batch.shape[3]
 
     for batch_idx in range(image_batch.shape[0]):
         image = image_batch[batch_idx,:,:,:]
