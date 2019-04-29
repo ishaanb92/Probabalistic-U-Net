@@ -142,7 +142,8 @@ def train(args):
                                   image_batch=images,
                                   label_batch = labels,
                                   preds_batch = outputs,
-                                  prefix = 'train_epoch_{}_iter_{}'.format(epoch,i))
+                                  prefix = 'train_epoch_{}_iter_{}'.format(epoch,i),
+                                  gpu_id = args.gpu_id)
 
                     train_per_class_dice = []
                     for class_id in range(labels.shape[1]):
@@ -159,7 +160,8 @@ def train(args):
                                       image_batch=val_images,
                                       label_batch = val_labels,
                                       preds_batch = val_outputs,
-                                      prefix = 'val_epoch_{}_iter_{}_idx_{}'.format(epoch,i,val_idx))
+                                      prefix = 'val_epoch_{}_iter_{}_idx_{}'.format(epoch,i,val_idx),
+                                      gpu_id = args.gpu_id)
 
 
                         per_class_val_dice_score = []

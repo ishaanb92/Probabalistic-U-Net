@@ -8,7 +8,7 @@ import numpy as np
 import os
 import glob
 
-def save_as_image(result_dir = None,image_batch=None,label_batch=None,preds_batch=None,fmt='png',prefix=None,n_channels=1):
+def save_as_image(result_dir = None,image_batch=None,label_batch=None,preds_batch=None,fmt='png',prefix=None,n_channels=1,gpu_id=-1):
     """
     Take a batch of tensors (images, labels and predictions) and save the batch
     as a collection of image grids, each image grid being one image-label-prediction
@@ -31,9 +31,15 @@ def save_as_image(result_dir = None,image_batch=None,label_batch=None,preds_batc
         os.makedirs(result_dir)
 
     #Convert torch tensors to numpy ndarray
-    image_batch = image_batch.cpu().numpy()
-    label_batch = label_batch.cpu().numpy()
-    preds_batch = preds_batch.cpu().numpy()
+    if gpu_id >= 0:
+        image_batch = image_batch.cpu().numpy()
+        label_batch = label_batch.cpu().numpy()
+        preds_batch = preds_batch.cpu().numpy()
+    else:
+        image_batch = image_batch.detach().numpy()
+        label_batch = label_batch.detach().numpy()
+        preds_batch = preds_batch.detach().numpy()
+
 
     # Adjust dynamic range while converting to np.uint8
     # to avoid loss compression

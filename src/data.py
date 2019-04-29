@@ -216,6 +216,13 @@ class ChaosLiverMR(Dataset):
 
         class_map_with_background = np.concatenate((background_map,class_maps),axis=0)
 
+        # Make sure that values in the label matrix along class axis (first dimenstion)
+        # sum up to 1
+        np.testing.assert_array_equal(x=np.array(np.sum(class_map_with_background,axis=0),dtype=np.uint8),
+                                      y=np.ones((map_h,map_w),dtype=np.uint8),
+                                      err_msg="Values in the label matrix do not sum up to 1 along the class axis",
+                                      verbose=True)
+
         return class_map_with_background
 
 
