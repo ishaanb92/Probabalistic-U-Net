@@ -18,6 +18,11 @@ This project is a WIP. The goal is to have a stable implementation of the [Proba
 TODO
 
 
+#### Debug:
+* Fix the loss function. Choose appropriate one for multi-class semantic segmentation
+* Verify that thresholds used to create the binary class-maps are correct
+* Ensure the model overfits to the training data before adding anything extra (eg: augmenting/transforming the training data)
+
 #### Pending tasks:
 * <strike>Write function to calculate dice similarity between predicted seg-map and ground truth</strike>
 * <strike>Track loss on train data v/s loss on val data during training</strike> 
