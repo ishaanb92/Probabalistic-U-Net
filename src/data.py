@@ -162,9 +162,18 @@ class ChaosLiverMR(Dataset):
             for class_id,interval in enumerate(self.class_intervals):
                 class_maps[class_id,:,:] = self.create_class_seg_map(label_gray=transformed_label_gray,intensity_interval = interval)
 
+            class_map_with_background = self.append_background_map(class_maps)
+            map_h,map_w = class_map_with_background.shape[1:]
+
+            # Make sure that values in the label matrix along class axis (first dimenstion)
+            # sum up to 1
+            np.testing.assert_array_equal(x=np.array(np.sum(class_map_with_background,axis=0),dtype=np.uint8),
+                                          y=np.ones((map_h,map_w),dtype=np.uint8),
+                                          err_msg="Values in the label matrix do not sum up to 1 along the class axis",
+                                          verbose=True)
             # Transform to PyTorch tensor
             sample['image'] = TF.to_tensor(sample['image'])
-            sample['label'] = self.append_background_map(class_maps)
+            sample['label'] = class_map_with_background
 
         return sample
 
@@ -215,13 +224,6 @@ class ChaosLiverMR(Dataset):
         background_map = np.reshape(background_map.ravel(),(1,map_h,map_w))
 
         class_map_with_background = np.concatenate((background_map,class_maps),axis=0)
-
-        # Make sure that values in the label matrix along class axis (first dimenstion)
-        # sum up to 1
-        np.testing.assert_array_equal(x=np.array(np.sum(class_map_with_background,axis=0),dtype=np.uint8),
-                                      y=np.ones((map_h,map_w),dtype=np.uint8),
-                                      err_msg="Values in the label matrix do not sum up to 1 along the class axis",
-                                      verbose=True)
 
         return class_map_with_background
 
