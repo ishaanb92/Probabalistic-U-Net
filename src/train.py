@@ -139,7 +139,16 @@ def train(args):
 
             loss = criterion(outputs,targets)
 
-            # Add all diagnostics here
+            # Loss diagnostics START
+            # Idea: The avg. loss at each spatial point of the output map
+            # must be -(1/log(n_classes)) at init
+
+            loss_matrix = np.array(loss.tolist())
+
+            # Calculate avg. loss value at each spatial point i.e. mean along the 0th axis
+            spatial_loss_map = np.mean(loss_matrix,axis=0)
+
+            # Loss diagnostics END
 
             loss = torch.mean(loss)
             loss.backward()
