@@ -19,7 +19,7 @@ def build_parser():
     parser = ArgumentParser()
     parser.add_argument('--lr',type=float,help='Initial learning rate for optimization',default=1e-4)
     parser.add_argument('--data_dir',type=str,help='Directory where train and val data exist',default='/home/ishaan/probablistic_u_net/data')
-    parser.add_argument('--batch_size',type=int,help='Training batch size',default=4)
+    parser.add_argument('--batch_size',type=int,help='Training batch size',default=8)
     parser.add_argument('--epochs',type=int,help='Training epochs',default=10)
     parser.add_argument('--gpu_id',type=int,help='Supply the GPU ID (0,1 or 2 on saruman)',default=-1)
     parser.add_argument('--renew',action='store_true',help='If true, older checkpoints are deleted')
@@ -113,7 +113,8 @@ def train(args):
     model.to(device)
 
     # Define the loss function
-    criterion = nn.BCELoss()
+    # reduction set to 'none' for debug purposes. FIXME
+    criterion = nn.CrossEntropyLoss(reduction='none')
 
     # Set up logging
     writer = SummaryWriter(os.path.join(args.log_dir,'exp_{}'.format(args.lr)))
@@ -125,9 +126,22 @@ def train(args):
         for i,data in enumerate(train_dataloader):
             images,labels = data['image'].to(device).float(), data['label'].to(device).float()
 
+            # nn.CrossEntropy() loss-term is meant for multi-class
+            # classification. However, instead of a one-hot label,
+            # it needs the "class-id" at each spatial location of
+            # the segmentation map. However, the one-hot class-maps
+            # are useful to visualize the reference segmentations
+            targets = torch.argmax(labels,dim=1)
+
             optimizer.zero_grad() #Clear gradient buffers
             outputs = model(images)
-            loss = criterion(outputs,labels)
+
+
+            loss = criterion(outputs,targets)
+
+            # Add all diagnostics here
+
+            loss = torch.mean(loss)
             loss.backward()
             optimizer.step()
 
@@ -136,7 +150,6 @@ def train(args):
             writer.add_scalar('Training Loss',loss.item(),len(train_dataloader)*epoch+i)
             if i%50 == 0:
                 with torch.no_grad():
-
                     # Visualize results
                     save_as_image(result_dir=train_results_dir,
                                   image_batch=images,
@@ -154,8 +167,12 @@ def train(args):
                     val_dice_scores = []
                     for val_idx,val_data in enumerate(val_dataloader):
                         val_images,val_labels = val_data['image'].to(device).float(),val_data['label'].to(device).float()
+
+                        val_targets = torch.argmax(val_labels,dim=1)
+
                         val_outputs = model(val_images)
-                        val_loss.append(criterion(val_outputs,val_labels).item())
+                        val_loss.append(torch.mean(criterion(val_outputs,val_targets)).item())
+
                         save_as_image(result_dir=val_results_dir,
                                       image_batch=val_images,
                                       label_batch = val_labels,
