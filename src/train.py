@@ -32,8 +32,6 @@ def build_parser():
 
 def train(args):
 
-
-
     torch.manual_seed(args.seed)
 
     if args.gpu_id >= 0:
@@ -42,15 +40,11 @@ def train(args):
         device = torch.device('cpu')
 
     # Instance the Dataset and Dataloader classes
-    tnfms = transforms.Compose([transforms.ToPILImage(),
-                                transforms.Resize(256)])
 
     train_dataset = ChaosLiverMR(root_dir = args.data_dir,
-                                 transforms=tnfms,
                                  renew=False)
 
     val_dataset = ChaosLiverMR(root_dir=args.data_dir,
-                               transforms=tnfms,
                                train=False,
                                renew=False)
 
@@ -167,9 +161,7 @@ def train(args):
                                   prefix = 'train_epoch_{}_iter_{}'.format(epoch,i),
                                   gpu_id = args.gpu_id)
 
-                    train_per_class_dice = []
-                    for class_id in range(labels.shape[1]):
-                        train_per_class_dice.append(calculate_dice_similairity(seg=outputs[:,class_id,:,:],gt=labels[:,class_id,:,:]))
+                    mean_train_dice = calculate_dice_similairity(seg=outputs,gt=labels)
 
                     # Calculate validation loss and metrics
                     val_loss = []
@@ -190,23 +182,15 @@ def train(args):
                                       gpu_id = args.gpu_id)
 
 
-                        per_class_val_dice_score = []
-
-                        for class_id in range(val_labels.shape[1]):
-                            per_class_val_dice_score.append(calculate_dice_similairity(seg=val_outputs[:,class_id,:,:],gt=val_labels[:,class_id,:,:]))
-
-                        val_dice_scores.append(np.array(per_class_val_dice_score))
+                        val_dice_scores.append(calculate_dice_similairity(seg=val_outputs,gt=val_labels))
 
                     mean_train_loss = running_loss/50
                     mean_val_loss = np.mean(np.array(val_loss))
-
-                    mean_train_dice = np.mean(np.array(train_per_class_dice))
-                    mean_val_per_class_dice = np.mean(np.array(val_dice_scores),axis=0)
                     mean_val_dice = np.mean(np.array(val_dice_scores),axis=None)
 
                     print('[Epoch {} Iteration {}] Training loss : {} Validation loss : {}'.format(epoch,i,mean_train_loss,mean_val_loss))
-                    print('[Epoch {} Iteration {}] (Training) Mean Dice Metric : {} Per-class dice metric : {}'.format(epoch,i,mean_train_dice,train_per_class_dice))
-                    print('[Epoch {} Iteration {}] (Validation) Mean Dice Metric : {} Per-class dice metric : {}'.format(epoch,i,mean_val_dice,mean_val_per_class_dice))
+                    print('[Epoch {} Iteration {}] (Training) Mean Dice Metric : {}'.format(epoch,i,mean_train_dice))
+                    print('[Epoch {} Iteration {}] (Validation) Mean Dice Metric : {}'.format(epoch,i,mean_val_dice))
                     print('\n')
 
                     running_loss = 0.0

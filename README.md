@@ -21,7 +21,7 @@ TODO
 #### Debug:
 * <strike>Fix the loss function. Choose appropriate one for multi-class semantic segmentation</strike>
 * Add some sanity tests to check if the CE loss has been configured correctly.
-* Verify that thresholds used to create the binary class-maps are correct
+* <strike>Verify that thresholds used to create the binary class-maps are correct</strike>
 * Ensure the model overfits to the training data before adding anything extra (eg: augmenting/transforming the training data)
 
 #### Pending tasks:

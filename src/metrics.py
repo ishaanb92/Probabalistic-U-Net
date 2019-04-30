@@ -19,23 +19,25 @@ def calculate_dice_similairity(seg,gt):
         dice_similarity_coeff (float) : Dice similiarty between predicted segmentations and ground truths
 
     """
-    #Flatten -- Need to make contiguous since we calculate the dice score for each class
-    seg = seg.contiguous().view(-1)
-    gt = gt.contiguous().view(-1)
 
 
     # Rationale behind the conversion to numpy (and the evenetual migration of computation to the CPU):
     #   - Cleaner to convert the torch.Tensor to numpy.ndarray at the start
     #   - Through the type-check, we retain the flexibility to supply either a numpy array or a torch.Tensor as the input arguments
 
-
     if torch.is_tensor(seg) is True:
+        seg = seg.contiguous().view(-1)
         seg = seg.detach()
         seg = seg.cpu().numpy()
+    else:
+        seg = seg.flatten()
 
     if torch.is_tensor(gt) is True:
         gt = gt.detach()
+        gt = gt.contiguous().view(-1)
         gt = gt.cpu().numpy()
+    else:
+        gt = gt.flatten()
 
     inter = np.inner(seg,gt)
     union = np.sum(seg) + np.sum(gt)
