@@ -22,12 +22,11 @@ from scipy.misc import imresize
 NUM_TRAIN_PATIENTS=15
 
 class ChaosLiverMR(Dataset):
-    def __init__(self,root_dir='./data',mode='T2SPIR',transforms=None,keep_train_prob = 0.9,renew=True,train=True):
+    def __init__(self,root_dir='./data',image_size=256,renew=True,train=True):
         self.data_dir = os.path.join(root_dir,'CHAOS_data')
         self.save_dir = root_dir
-        self.mode = mode
-        self.transforms = transforms
         self.train = train
+        self.image_size = image_size
 
         #Init various directory paths
         self.train_dir = os.path.join(self.save_dir,'train_data')
@@ -147,6 +146,24 @@ class ChaosLiverMR(Dataset):
 
         return class_map
 
+    def transform_image(self,image):
+        """
+        Perform image transformations before it is
+        fed to the neural network
+
+        Parameters:
+            image (numpy ndarray or PyTorch tensor) : Image to be transformed
+
+        Returns:
+            image (Pytorch tensor) : Format accepted by torch.nn ops
+
+        """
+
+        image = TF.to_pil_image(image)
+        image = TF.resize(image,size=self.image_size)
+        image = TF.to_tensor(image)
+        return image
+
     def __getitem__(self,index):
 
         img_path = self.image_paths[index]
@@ -163,34 +180,21 @@ class ChaosLiverMR(Dataset):
         # operate on PIL format arrays
         img = img.reshape((img.shape[0],img.shape[1],1))
         class_maps = self.create_binary_class_maps(label)
-
-        sample = {'image':img,'label': None}
-
         num_classes = class_maps.shape[0]
 
+        sample = {'image':img,'label': np.zeros((num_classes,self.image_size,self.image_size))}
 
-        if self.transforms is not None:
+        sample['image'] = self.transform_image(sample['image'])
 
-            # Convert to PIL + Resize image
-            sample['image'] = self.transforms(sample['image'])
-            new_h,new_w = sample['image'].size
+        for class_id in range(num_classes):
+            #FIXME : Deprecation warning for imresize, fix this soon
+            sample['label'][class_id] = np.array(imresize(class_maps[class_id,:,:],size=(self.image_size,self.image_size)),dtype=np.uint8)
 
-            # Init the dictionary entry for 'label' because now we know the shape
-            sample['label'] = np.zeros((num_classes,new_h,new_w),dtype=np.uint8)
-
-            for class_id in range(num_classes):
-                #FIXME : Deprecation warning for imresize, fix this soon
-                sample['label'][class_id] = np.array(imresize(class_maps[class_id,:,:],size=(new_h,new_w)),dtype=np.uint8)
-
-            # Make sure that values in the label matrix along class axis (first dimenstion)
-            # sum up to 1
-            np.testing.assert_array_equal(x=np.array(np.sum(sample['label'],axis=0),dtype=np.uint8),
-                                          y=np.ones((new_h,new_w),dtype=np.uint8),
-                                          err_msg="Values in the label matrix do not sum up to 1 along the class axis",
-                                          verbose=True)
-
-            # Transform to PyTorch tensor
-            sample['image'] = TF.to_tensor(sample['image'])
+        # Make sure that values in the label matrix along class axis (first dimenstion) sum up to 1
+        np.testing.assert_array_equal(x=np.array(np.sum(sample['label'],axis=0),dtype=np.uint8),
+                                      y=np.ones((self.image_size,self.image_size),dtype=np.uint8),
+                                      err_msg="Values in the label matrix do not sum up to 1 along the class axis",
+                                      verbose=True)
 
         return sample
 
@@ -203,11 +207,7 @@ class ChaosLiverMR(Dataset):
 if __name__ == '__main__':
     # Basic sanity for the dataset class -- Run this when making any change to this code
 
-    tnfms = transforms.Compose([transforms.ToPILImage(),transforms.Resize(256)])
-
     chaos_dataset = ChaosLiverMR(root_dir='/home/ishaan/probablistic_u_net/data',
-                                 mode='T2SPIR',
-                                 transforms=tnfms,
                                  train=True,
                                  renew=True)
     #DataLoader
