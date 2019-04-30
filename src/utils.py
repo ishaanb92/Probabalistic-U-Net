@@ -101,6 +101,28 @@ def adjust_dynamic_range(image):
     return adjusted_image
 
 
+def convert_to_grayscale(image):
+    """
+    Convert DICOM image (uint16) to grayscale range (uint8)
+
+    Parameters:
+        image (numpy ndarray) : Numpy array uint16
+
+    Returns:
+        np.uint8 matrix that can be saved as a grayscale image
+
+    """
+
+    eps = 1e-5
+
+    image  = np.array(image,dtype=np.float32)
+
+    image = image/(np.amax(image) + eps) # [0,1] range
+
+    image = np.multiply(image,255)
+
+    return np.array(image,dtype=np.uint8)
+
 def save_model(model=None,optimizer=None,epoch=None,checkpoint_dir=None):
     """
     Function save the PyTorch model along with optimizer state

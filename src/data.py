@@ -2,6 +2,7 @@ from __future__ import print_function, division
 import os
 import torch
 import sys
+sys.path.append(os.path.join(os.getcwd(),'src'))
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -12,28 +13,25 @@ import glob
 from collections import OrderedDict
 from collections import Counter
 import shutil
-import pydicom as dcm
 import imageio
+import random
+import nrrd
+from utils import convert_to_grayscale
+from scipy.misc import imresize
+
+NUM_TRAIN_PATIENTS=15
 
 class ChaosLiverMR(Dataset):
     def __init__(self,root_dir='./data',mode='T2SPIR',transforms=None,keep_train_prob = 0.9,renew=True,train=True):
-        self.root_dir = root_dir
+        self.data_dir = os.path.join(root_dir,'CHAOS_data')
+        self.save_dir = root_dir
         self.mode = mode
-        self.keep_train_prob = keep_train_prob
         self.transforms = transforms
         self.train = train
 
-        # Intensity intervals for different classes:
-        # 1. Liver
-        # 2. Right Kidney
-        # 3. Left Kidnet
-        # 4. Spleen
-        # Interval values taken from : https://github.com/jonasteuwen/chaos-challenge/blob/master/build_chaos_dataset.py
-        self.class_intervals = [(55,70),(110,135),(175,200),(240,255)]
-
         #Init various directory paths
-        self.train_dir = os.path.join(self.root_dir,'train_data')
-        self.val_dir = os.path.join(self.root_dir,'val_data')
+        self.train_dir = os.path.join(self.save_dir,'train_data')
+        self.val_dir = os.path.join(self.save_dir,'val_data')
 
         self.train_images_dir = os.path.join(self.train_dir,'images')
         self.train_labels_dir = os.path.join(self.train_dir,'labels')
@@ -47,58 +45,66 @@ class ChaosLiverMR(Dataset):
         self.create_path_list()
 
 
-    def create_train_val_sets(self):
+    def create_train_val_sets(self,shuffle=True):
         """
-        Creates folders for training and validation data
-        Splits the data into training and validation sets
-        based on keep_train_prob fraction
+        Split patients into training and validation sets
 
         """
 
-        if os.path.exists(self.train_dir) is True:
-            shutil.rmtree(self.train_dir)
+        patient_ids = [patient_dir.split('_')[-1] for patient_dir in os.listdir(self.data_dir)]
 
-        if os.path.exists(self.val_dir) is True:
-            shutil.rmtree(self.val_dir)
+        if shuffle is True:
+            random.shuffle(patient_ids)
 
-        os.makedirs(self.train_images_dir)
-        os.makedirs(self.train_labels_dir)
-        os.makedirs(self.val_images_dir)
-        os.makedirs(self.val_labels_dir)
+        train_patient_ids = patient_ids[:NUM_TRAIN_PATIENTS]
+        val_patient_ids = patient_ids[NUM_TRAIN_PATIENTS:]
 
-        data_dict = OrderedDict()
+        self.create_image_label_slices(patient_ids=train_patient_ids,train=True)
+        self.create_image_label_slices(patient_ids=val_patient_ids,train=False)
 
-        # Split images into 'train' and 'val' sets
-        image_dir_list = [os.path.join(f.path,self.mode.upper(),'DICOM_anon') for f in os.scandir(os.path.join(self.root_dir,'Train_Sets','MR')) if f.is_dir()]
-        label_dir_list = [os.path.join(f.path,self.mode.upper(),'Ground') for f in os.scandir(os.path.join(self.root_dir,'Train_Sets','MR')) if f.is_dir()]
+    def create_image_label_slices(self,patient_ids=[],train=True):
+        """
+        Saves image slices from the MRI along with
+        corresponding segmentations class labels
 
-        fnames = []
-        for i_dir,l_dir in zip(image_dir_list,label_dir_list):
-            images = glob.glob(os.path.join(i_dir,'*.dcm'))
-            for image in images:
-                fname = image.split('/')[-1].split('.')[0]
-                fnames.append(fname)
-                label = glob.glob(os.path.join(l_dir,fname+'.*'))[0]
-                data_dict[image] = label
+        Parameters:
+            patient_ids (Python list ): List of patient ids to create the image/label set
+            train (bool)
 
-        counts_dict = Counter(fnames)
+        Returns:
+            None
 
+        """
 
-        num_train = int(self.keep_train_prob*len(data_dict))
+        if train is True:
+            out_dir = self.train_dir
+        else:
+            out_dir = self.val_dir
 
-        for idx,image_path in enumerate(data_dict):
+        img_dir = os.path.join(out_dir,'images')
+        lab_dir = os.path.join(out_dir,'labels')
 
-            label_path = data_dict[image_path]
+        try:
+            shutil.rmtree(out_dir)
+        except FileNotFoundError:
+            pass
 
-            if idx <= num_train:
-                img_dst = os.path.join(self.train_images_dir,'img_{}.dcm'.format(idx))
-                label_dst = os.path.join(self.train_labels_dir,'lab_{}.png'.format(idx))
-            else:
-                img_dst = os.path.join(self.val_images_dir,'img_{}.dcm'.format(idx))
-                label_dst = os.path.join(self.val_labels_dir,'lab_{}.png'.format(idx))
+        os.makedirs(out_dir)
+        os.makedirs(img_dir)
+        os.makedirs(lab_dir)
 
-            shutil.copy2(image_path,img_dst)
-            shutil.copy2(label_path,label_dst)
+        for example_num,idx in enumerate(patient_ids):
+            patient_folder = os.path.join(self.data_dir,'Patient_{}'.format(idx))
+            img_vol,_ = nrrd.read(os.path.join(patient_folder,'T2SPIR_image.nrrd'))
+            lab_vol,_ = nrrd.read(os.path.join(patient_folder,'T2SPIR_mask.nrrd'))
+            _,_,n_slices = img_vol.shape
+            for slice_id in range(n_slices):
+                image_slice = img_vol[:,:,slice_id]
+                label_slice = lab_vol[:,:,slice_id]
+                image_fname = 'img_{}_{}.png'.format(idx,slice_id)
+                label_fname = 'lab_{}_{}.png'.format(idx,slice_id)
+                imageio.imwrite(os.path.join(img_dir,image_fname),convert_to_grayscale(image_slice))
+                imageio.imwrite(os.path.join(lab_dir,label_fname),label_slice)
 
     def create_path_list(self):
         """
@@ -119,13 +125,27 @@ class ChaosLiverMR(Dataset):
             print('Train/validation data directories do no exist. Please set the renew argument to True while instancing the class')
             sys.exit()
 
-        self.image_paths = glob.glob(os.path.join(data_dir,'images','*.dcm'))
+        self.image_paths = glob.glob(os.path.join(data_dir,'images','*.png'))
 
         for path in self.image_paths:
-            image_idx = path.split('/')[-1].split('.')[0].split('_')[1] # This is why I love Python!
-            self.label_paths.append(os.path.join(data_dir,'labels','lab_{}.png'.format(image_idx)))
+            patient_idx = path.split('/')[-1].split('.')[0].split('_')[1]
+            slice_idx = path.split('/')[-1].split('.')[0].split('_')[-1]
+            self.label_paths.append(os.path.join(data_dir,'labels','lab_{}_{}.png'.format(patient_idx,slice_idx)))
 
 
+    def create_binary_class_maps(self,label,num_classes=5):
+        """
+        Take a label image having pixel values from 0-4
+        and creates 5 binary class maps
+
+        """
+
+        class_map = np.zeros((num_classes,label.shape[0],label.shape[1]),dtype=np.uint8)
+        for class_id in range(num_classes):
+            class_mask = np.where(label==class_id,1,0)
+            class_map[class_id,:,:] = class_mask
+
+        return class_map
 
     def __getitem__(self,index):
 
@@ -134,46 +154,43 @@ class ChaosLiverMR(Dataset):
 
 
         # Fix dtype for PIL conversion
-        img = np.array(dcm.dcmread(img_path).pixel_array,dtype=np.uint8)
-        label = np.array(imageio.imread(label_path),dtype=np.uint8)
+        img = imageio.imread(img_path)
+        label = imageio.imread(label_path)
 
         # Reshape for PIL conversion
         # We need to convert the arrays into the PIL format
         # because PyTorch transforms like 'Resize' etc.
         # operate on PIL format arrays
         img = img.reshape((img.shape[0],img.shape[1],1))
-        label = label.reshape((label.shape[0],label.shape[1],1))
+        class_maps = self.create_binary_class_maps(label)
 
-        sample = {'image':img,'label':label}
+        sample = {'image':img,'label': None}
 
-        num_classes = len(self.class_intervals)
+        num_classes = class_maps.shape[0]
 
 
         if self.transforms is not None:
 
             # Convert to PIL + Resize image
             sample['image'] = self.transforms(sample['image'])
+            new_h,new_w = sample['image'].size
 
-            # PIL + Resize + numpy() for label for further splitting into class maps
-            transformed_label_gray = np.array(self.transforms(sample['label']),dtype=np.uint8)
+            # Init the dictionary entry for 'label' because now we know the shape
+            sample['label'] = np.zeros((num_classes,new_h,new_w),dtype=np.uint8)
 
-            # Split the single grayscale image into per-class binary maps
-            class_maps = np.zeros((num_classes,transformed_label_gray.shape[0],transformed_label_gray.shape[1]))
-            for class_id,interval in enumerate(self.class_intervals):
-                class_maps[class_id,:,:] = self.create_class_seg_map(label_gray=transformed_label_gray,intensity_interval = interval)
-
-            class_map_with_background = self.append_background_map(class_maps)
-            map_h,map_w = class_map_with_background.shape[1:]
+            for class_id in range(num_classes):
+                #FIXME : Deprecation warning for imresize, fix this soon
+                sample['label'][class_id] = np.array(imresize(class_maps[class_id,:,:],size=(new_h,new_w)),dtype=np.uint8)
 
             # Make sure that values in the label matrix along class axis (first dimenstion)
             # sum up to 1
-            np.testing.assert_array_equal(x=np.array(np.sum(class_map_with_background,axis=0),dtype=np.uint8),
-                                          y=np.ones((map_h,map_w),dtype=np.uint8),
+            np.testing.assert_array_equal(x=np.array(np.sum(sample['label'],axis=0),dtype=np.uint8),
+                                          y=np.ones((new_h,new_w),dtype=np.uint8),
                                           err_msg="Values in the label matrix do not sum up to 1 along the class axis",
                                           verbose=True)
+
             # Transform to PyTorch tensor
             sample['image'] = TF.to_tensor(sample['image'])
-            sample['label'] = class_map_with_background
 
         return sample
 
@@ -181,51 +198,6 @@ class ChaosLiverMR(Dataset):
     def __len__(self):
         return len(self.image_paths)
 
-    def create_class_seg_map(self,label_gray,intensity_interval = []):
-        """
-        Convert a single channel grayscale image to a multi-channel (=num classes)
-        binary image
-
-        Parameters:
-            label_gray (np.array) : Gray-scale label image
-            intesity_interval (Python list or tuple) : Interval to threshold
-        Return:
-            class_seg_map (np.array) : Segmentation map for the class
-
-        """
-        cond = np.logical_and((label_gray[:,:] > intensity_interval[0]),(label_gray[:,:] <= intensity_interval[1]))
-        class_seg_map = np.array(cond,dtype=np.uint8)
-        return class_seg_map
-
-    def append_background_map(self,class_maps):
-        """
-        Create a segmentation map for the background and
-        append it to the label matrix
-
-        Parameters:
-            class_maps (numpy ndarray) : Binary segmentation maps for all classes
-
-        Returns:
-            class_map_with_background (numpy ndarray) : Complete label for segmentation
-
-        """
-        num_classes = class_maps.shape[0]
-
-        background_map = np.zeros((class_maps.shape[1],class_maps.shape[2]))
-
-        # What we need is a NOR operation for matrices with binary values (0 or 1)
-        for class_id in range(num_classes):
-            background_map += class_maps[class_id,:,:]
-
-        background_map = 1 - background_map
-
-        map_h,map_w = background_map.shape
-
-        background_map = np.reshape(background_map.ravel(),(1,map_h,map_w))
-
-        class_map_with_background = np.concatenate((background_map,class_maps),axis=0)
-
-        return class_map_with_background
 
 
 if __name__ == '__main__':
@@ -233,16 +205,16 @@ if __name__ == '__main__':
 
     tnfms = transforms.Compose([transforms.ToPILImage(),transforms.Resize(256)])
 
-    chaos_dataset = ChaosLiverMR(root_dir='/home/ishaan/probablistic_u_net/data/',
+    chaos_dataset = ChaosLiverMR(root_dir='/home/ishaan/probablistic_u_net/data',
                                  mode='T2SPIR',
                                  transforms=tnfms,
                                  train=True,
                                  renew=True)
     #DataLoader
     dataloader = DataLoader(dataset=chaos_dataset,
-                            batch_size = 4,
+                            batch_size = 1,
                             shuffle=True,
-                            num_workers = 4)
+                            num_workers = 1)
 
     iters = 0
 
@@ -263,15 +235,13 @@ if __name__ == '__main__':
             print('Max pixel value in seg map : {}'.format(np.amax(label[0,:,:])))
             print('Max pixel value in background map : {}'.format(np.amax(label[1,:,:])))
 
+            print('Max pixel value in image : {}'.format(np.amax(img)))
+
             #PyTorch returns image/label matrices in the range 0-1 with np.float64 format (through some internal [and undocumented] magic!)
+            imageio.imwrite(os.path.join(test_batch_dir,'img_{}_{}.jpg'.format(iters,batch_idx)),convert_to_grayscale(img[0,:,:]))
 
-            #For display, re-scale image to 0-255 range
-            img = np.array(255*np.transpose(img, (1,2,0)),dtype=np.uint8)
-            label = np.array(255*np.transpose(label, (1,2,0)),dtype=np.uint8)
-
-            imageio.imwrite(os.path.join(test_batch_dir,'img_{}_{}.jpg'.format(iters,batch_idx)),img)
-            imageio.imwrite(os.path.join(test_batch_dir,'label_{}_{}_seg.jpg'.format(iters,batch_idx)),label[:,:,0])
-            imageio.imwrite(os.path.join(test_batch_dir,'label_{}_{}_back.jpg'.format(iters,batch_idx)),label[:,:,1])
+            for class_id in range(label.shape[0]):
+                imageio.imwrite(os.path.join(test_batch_dir,'label_{}_{}_{}.jpg'.format(iters,batch_idx,class_id)),convert_to_grayscale(label[class_id,:,:]))
 
         iters += 1
         if iters == 5:
