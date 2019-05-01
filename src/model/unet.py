@@ -43,10 +43,6 @@ class UNet(nn.Module):
         self.base_filter_num = int(base_filter_num)
         self.enc_layer_depths = [] #Keep track of the output depths of each encoder block
 
-        #Max pool operation for the output of each encoder stage
-        self.max_pool_op = nn.MaxPool2d(kernel_size=2)
-
-        #Encoder Path
         for block_id in range(num_blocks):
             enc_block_filter_num = pow(2,block_id)*self.base_filter_num #Output depth of current encoder stage
             if block_id == 0:
@@ -69,17 +65,13 @@ class UNet(nn.Module):
         #Output Layer
         self.output = nn.Conv2d(in_channels=int(self.enc_layer_depths[0]),out_channels= (self.n_classes + 1), kernel_size=1)
 
-        # Softmax Layer to create a seg-map that is a probability distribution
-        # over the different classes at each spatial location (So, dim=1 is used)
-        self.norm_layer = nn.Softmax(dim=1)
-
     def forward(self,x):
         #Encoder
         enc_outputs = []
         for enc_op in self.contracting_path:
             x = enc_op(x)
             enc_outputs.append(x)
-            x = self.max_pool_op(x)
+            x = nn.MaxPool2d(kernel_size=2)(x)
 
         #Bottle-neck layer
         x = self.bottle_neck_layer(x)
@@ -94,7 +86,7 @@ class UNet(nn.Module):
         #Interpolate to match the size of seg-map
         out = F.interpolate(input=x,size=self.output_shape,mode='bilinear',align_corners=True)
 
-        softmax_out = self.norm_layer(out)
+        softmax_out = nn.Softmax(dim=1)(out)
 
         return softmax_out
 
