@@ -12,8 +12,8 @@ def calculate_dice_similairity(seg,gt):
     over the entire batch
 
     Parameters:
-        seg (numpy nd array or torch.Tensor) : Batch of (Predicted )Segmentation map
-        gt (numpy nd array or torch.Tensor) : Batch of ground truth maps
+        seg (torch.Tensor) : Batch of (Predicted )Segmentation map
+        gt (torch.Tensor) : Batch of ground truth maps
 
     Returns:
         dice_similarity_coeff (float) : Dice similiarty between predicted segmentations and ground truths
@@ -21,32 +21,18 @@ def calculate_dice_similairity(seg,gt):
     """
 
 
-    # Rationale behind the conversion to numpy (and the evenetual migration of computation to the CPU):
-    #   - Cleaner to convert the torch.Tensor to numpy.ndarray at the start
-    #   - Through the type-check, we retain the flexibility to supply either a numpy array or a torch.Tensor as the input arguments
-
-    if torch.is_tensor(seg) is True:
+    with torch.no_grad():
         seg = seg.contiguous().view(-1)
-        seg = seg.detach()
-        seg = seg.cpu().numpy()
-    else:
-        seg = seg.flatten()
-
-    if torch.is_tensor(gt) is True:
-        gt = gt.detach()
         gt = gt.contiguous().view(-1)
-        gt = gt.cpu().numpy()
-    else:
-        gt = gt.flatten()
 
-    inter = np.inner(seg,gt)
-    union = np.sum(seg) + np.sum(gt)
+        inter = torch.dot(seg,gt).item()
+        union = torch.sum(seg) + torch.sum(gt)
 
-    eps = 0.0001 #For numerical stability
+        eps = 0.0001 #For numerical stability
 
-    dice_similarity_coeff = (2*inter.astype(float) + eps)/(union.astype(float) + eps)
+        dice_similarity_coeff = (2*inter)/(union.item())
 
-    return dice_similarity_coeff
+        return dice_similarity_coeff
 
 
 
