@@ -206,3 +206,26 @@ def select_last_checkpoint(file_list):
     index_latest_checkpoint = epochs.index(max(epochs))
     return file_list[index_latest_checkpoint]
 
+
+def calculate_total_grad_norm(parameters):
+    """
+    Debug function, used to calculate the gradient norm
+    during training to check effectiveness
+
+    Parameters:
+        parameters(List of torch.nn.parameter.Parameter objects) : Parameters of the model being analyzed
+
+    Returns:
+        grad_norm(float) : L2 norm of the gradients
+
+    """
+    with torch.no_grad():
+        grads = []
+        for p in parameters:
+            if p.requires_grad is True:
+                grads.append(p.grad.flatten().tolist())
+
+        flattened_list=  [grad_value for layer in grads for grad_value in layer]
+        grad_norm = np.linalg.norm(np.array(flattened_list,dtype=np.float32))
+        return grad_norm
+
