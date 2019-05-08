@@ -18,12 +18,12 @@ from metrics import calculate_dice_similairity
 def build_parser():
     parser = ArgumentParser()
     parser.add_argument('--lr',type=float,help='Initial learning rate for optimization',default=1e-4)
-    parser.add_argument('--data_dir',type=str,help='Directory where train and val data exist',default='/home/ishaan/probablistic_u_net/data')
-    parser.add_argument('--batch_size',type=int,help='Training batch size',default=8)
+    parser.add_argument('--data_dir',type=str,help='Directory where train and val data exist',default='/home/ishaan/Work/unet/Probabalistic-U-Net/data')
+    parser.add_argument('--batch_size',type=int,help='Training batch size',default=16)
     parser.add_argument('--epochs',type=int,help='Training epochs',default=10)
-    parser.add_argument('--gpu_id',type=int,help='Supply the GPU ID (0,1 or 2 on saruman)',default=-1)
+    parser.add_argument('--gpu_id',type=int,help='Supply the GPU ID (0: Titan Xp, 1: Quadro P1000)',default= 0)
     parser.add_argument('--renew',action='store_true',help='If true, older checkpoints are deleted')
-    parser.add_argument('--checkpoint_dir',type=str,help='Directory to save model parameters',default='/home/ishaan/probablistic_u_net/checkpoints')
+    parser.add_argument('--checkpoint_dir',type=str,help='Directory to save model parameters',default='/home/ishaan/Work/unet/Probabalistic-U-Net/checkpoints')
     parser.add_argument('--log_dir',type=str,help='Directory to store tensorboard logs',default='./logs')
     parser.add_argument('--seed',type=int,help='Fix seed for reproducibility',default=42)
     args = parser.parse_args()
@@ -40,9 +40,9 @@ def train(args):
         device = torch.device('cpu')
 
     # Instance the Dataset and Dataloader classes
-
     train_dataset = ChaosLiverMR(root_dir = args.data_dir,
-                                 renew=False)
+                                 train=True,
+                                 renew=args.renew)
 
     val_dataset = ChaosLiverMR(root_dir=args.data_dir,
                                train=False,
@@ -108,15 +108,14 @@ def train(args):
 
     # Define the loss function
     # reduction set to 'none' for debug purposes. FIXME
-    criterion = nn.CrossEntropyLoss(reduction='none')
+    criterion = nn.CrossEntropyLoss()
 
     # Set up logging
     writer = SummaryWriter(os.path.join(args.log_dir,'exp_{}'.format(args.lr)))
 
     # Start the training loop
+    running_loss = []
     for epoch in range(epoch_saved,args.epochs):
-        running_loss = 0.0
-
         for i,data in enumerate(train_dataloader):
             images,labels = data['image'].to(device).float(), data['label'].to(device).float()
 
@@ -137,19 +136,10 @@ def train(args):
             # Idea: The avg. loss at each spatial point of the output map
             # must be -(1/log(n_classes)) at init
 
-            loss_matrix = np.array(loss.tolist())
-
-            # Calculate avg. loss value at each spatial point i.e. mean along the 0th axis
-            spatial_loss_map = np.mean(loss_matrix,axis=0)
-
-            # Loss diagnostics END
-
-            loss = torch.mean(loss)
             loss.backward()
             optimizer.step()
 
-            running_loss += loss.item()
-            # Log the loss
+            running_loss.append(loss.item())
             writer.add_scalar('Training Loss',loss.item(),len(train_dataloader)*epoch+i)
             if i%50 == 0:
                 with torch.no_grad():
@@ -164,7 +154,7 @@ def train(args):
                     mean_train_dice = calculate_dice_similairity(seg=outputs,gt=labels)
 
                     # Calculate validation loss and metrics
-                    val_loss = []
+                    running_val_loss = []
                     val_dice_scores = []
                     for val_idx,val_data in enumerate(val_dataloader):
                         val_images,val_labels = val_data['image'].to(device).float(),val_data['label'].to(device).float()
@@ -172,7 +162,11 @@ def train(args):
                         val_targets = torch.argmax(val_labels,dim=1)
 
                         val_outputs = model(val_images)
-                        val_loss.append(torch.mean(criterion(val_outputs,val_targets)).item())
+
+                        val_loss = criterion(val_outputs,val_targets)
+                        running_val_loss.append(val_loss.item())
+
+                        writer.add_scalar('Validation Loss',val_loss.item(),len(val_dataloader)*epoch+val_idx)
 
                         save_as_image(result_dir=val_results_dir,
                                       image_batch=val_images,
@@ -184,8 +178,8 @@ def train(args):
 
                         val_dice_scores.append(calculate_dice_similairity(seg=val_outputs,gt=val_labels))
 
-                    mean_train_loss = running_loss/50
-                    mean_val_loss = np.mean(np.array(val_loss))
+                    mean_train_loss = np.mean(np.array(running_loss))
+                    mean_val_loss = np.mean(np.array(running_val_loss))
                     mean_val_dice = np.mean(np.array(val_dice_scores),axis=None)
 
                     print('[Epoch {} Iteration {}] Training loss : {} Validation loss : {}'.format(epoch,i,mean_train_loss,mean_val_loss))
@@ -193,12 +187,12 @@ def train(args):
                     print('[Epoch {} Iteration {}] (Validation) Mean Dice Metric : {}'.format(epoch,i,mean_val_dice))
                     print('\n')
 
-                    running_loss = 0.0
+                    running_loss = []
 
         #Save model every epoch
         save_model(model=model,optimizer=optimizer,epoch=epoch,checkpoint_dir=args.checkpoint_dir)
 
-    writer.close()
+    #writer.close()
 
 if __name__ == '__main__':
     args = build_parser()

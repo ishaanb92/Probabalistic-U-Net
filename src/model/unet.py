@@ -69,10 +69,6 @@ class UNet(nn.Module):
         #Output Layer
         self.output = nn.Conv2d(in_channels=int(self.enc_layer_depths[0]),out_channels= (self.n_classes + 1), kernel_size=1)
 
-        # Softmax Layer to create a seg-map that is a probability distribution
-        # over the different classes at each spatial location (So, dim=1 is used)
-        self.norm_layer = nn.Softmax(dim=1)
-
     def forward(self,x):
         #Encoder
         enc_outputs = []
@@ -94,9 +90,7 @@ class UNet(nn.Module):
         #Interpolate to match the size of seg-map
         out = F.interpolate(input=x,size=self.output_shape,mode='bilinear',align_corners=True)
 
-        softmax_out = self.norm_layer(out)
-
-        return softmax_out
+        return out
 
 
 
