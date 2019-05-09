@@ -94,6 +94,7 @@ def train(args):
                                                 optimizer = optimizer,
                                                 checkpoint_dir=args.checkpoint_dir,
                                                 training=True)
+        print('Loading model and optimizer state. Last saved epoch = {}'.format(epoch_saved))
 
     # The optimizer and model must reside on the same device.
     # optimizer.to(device) method does not exist, therefore for an optimizer loaded from disk, we need to manually copy it over.
@@ -137,9 +138,6 @@ def train(args):
 
             # Normalize output using softmax, this is what the loss function "sees"
             norm_outputs = F.softmax(input=outputs,dim=1)
-
-            #gradient_l2_norm = calculate_total_gradient_norm(model.parameters())
-            #writer.add_scalar('Parameter Gradient Norm',gradient_l2_norm,len(train_dataloader)*epoch+i)
 
             running_loss.append(loss.item())
             writer.add_scalar('Training Loss',loss.item(),len(train_dataloader)*epoch+i)
@@ -196,7 +194,7 @@ def train(args):
         #Save model every epoch
         save_model(model=model,optimizer=optimizer,epoch=epoch,checkpoint_dir=args.checkpoint_dir)
 
-    #writer.close()
+    writer.close()
 
 if __name__ == '__main__':
     args = build_parser()
