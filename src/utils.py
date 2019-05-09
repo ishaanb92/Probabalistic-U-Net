@@ -207,7 +207,7 @@ def select_last_checkpoint(file_list):
     return file_list[index_latest_checkpoint]
 
 
-def calculate_total_grad_norm(parameters):
+def calculate_total_gradient_norm(parameters):
     """
     Debug function, used to calculate the gradient norm
     during training to check effectiveness
@@ -228,4 +228,23 @@ def calculate_total_grad_norm(parameters):
         flattened_list=  [grad_value for layer in grads for grad_value in layer]
         grad_norm = np.linalg.norm(np.array(flattened_list,dtype=np.float32))
         return grad_norm
+
+def threshold_predictions(preds):
+    """
+    Creates thresholded binary images from network
+    predictions
+
+    Parameters:
+        preds (Torch tensor) : Tensor of outputs (N x C x H x W)
+
+    Returns:
+        thresh_preds (Torch tensor) : Tensor of thresholded outputs
+
+    """
+
+    ones = torch.ones(preds.shape)
+    zeros = torch.zeros(preds.shape)
+    thresh_preds = torch.where(preds.cpu()>0.5,ones,zeros)
+    return thresh_preds
+
 

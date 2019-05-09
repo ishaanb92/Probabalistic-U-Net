@@ -20,8 +20,8 @@ def build_parser():
     parser.add_argument('--lr',type=float,help='Initial learning rate for optimization',default=1e-4)
     parser.add_argument('--data_dir',type=str,help='Directory where train and val data exist',default='/home/ishaan/Work/unet/Probabalistic-U-Net/data')
     parser.add_argument('--batch_size',type=int,help='Training batch size',default=16)
-    parser.add_argument('--epochs',type=int,help='Training epochs',default=10)
-    parser.add_argument('--gpu_id',type=int,help='Supply the GPU ID (0: Titan Xp, 1: Quadro P1000)',default= 0)
+    parser.add_argument('--epochs',type=int,help='Training epochs',default=100)
+    parser.add_argument('--gpu_id',type=int,help='Supply the GPU ID (0: Titan Xp, 1: Quadro P1000). In case a GPU is unavilable, code can be run on a CPU by providing a negative number',default= 0)
     parser.add_argument('--renew',action='store_true',help='If true, older checkpoints are deleted')
     parser.add_argument('--checkpoint_dir',type=str,help='Directory to save model parameters',default='/home/ishaan/Work/unet/Probabalistic-U-Net/checkpoints')
     parser.add_argument('--log_dir',type=str,help='Directory to store tensorboard logs',default='./logs')
@@ -149,7 +149,7 @@ def train(args):
                     save_as_image(result_dir=train_results_dir,
                                   image_batch=images,
                                   label_batch = labels,
-                                  preds_batch = norm_outputs,
+                                  preds_batch = threshold_predictions(norm_outputs),
                                   prefix = 'train_epoch_{}_iter_{}'.format(epoch,i),
                                   gpu_id = args.gpu_id)
 
@@ -175,7 +175,7 @@ def train(args):
                         save_as_image(result_dir=val_results_dir,
                                       image_batch=val_images,
                                       label_batch = val_labels,
-                                      preds_batch = norm_val_outputs,
+                                      preds_batch = threshold_predictions(norm_val_outputs),
                                       prefix = 'val_epoch_{}_iter_{}_idx_{}'.format(epoch,i,val_idx),
                                       gpu_id = args.gpu_id)
 
