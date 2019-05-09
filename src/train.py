@@ -64,8 +64,8 @@ def train(args):
     val_results_dir = os.path.join(args.log_dir,'visualizations','val_preds')
 
     #Instance the UNet model and optimizer
-    model = UNet(image_size=256,num_classes=4)
-    optimizer = optim.Adam(model.parameters())
+    model = UNet(image_size=256,num_classes=5)
+    optimizer = optim.Adam(params=model.parameters(),lr=args.lr)
 
     #Delete/load old checkpoints
     if args.renew is True:
@@ -119,25 +119,27 @@ def train(args):
         for i,data in enumerate(train_dataloader):
             images,labels = data['image'].to(device).float(), data['label'].to(device).float()
 
-            # nn.CrossEntropy() loss-term is meant for multi-class
+            # nn.CrossEntropyLoss() loss-term is meant for multi-class
             # classification. However, instead of a one-hot label,
             # it needs the "class-id" at each spatial location of
             # the segmentation map. However, the one-hot class-maps
             # are useful to visualize the reference segmentations
+            # See : https://pytorch.org/docs/stable/nn.html#crossentropyloss
             targets = torch.argmax(labels,dim=1)
 
             optimizer.zero_grad() #Clear gradient buffers
             outputs = model(images)
 
-
             loss = criterion(outputs,targets)
-
-            # Loss diagnostics START
-            # Idea: The avg. loss at each spatial point of the output map
-            # must be -(1/log(n_classes)) at init
 
             loss.backward()
             optimizer.step()
+
+            # Normalize output using softmax, this is what the loss function "sees"
+            norm_outputs = F.softmax(input=outputs,dim=1)
+
+            #gradient_l2_norm = calculate_total_gradient_norm(model.parameters())
+            #writer.add_scalar('Parameter Gradient Norm',gradient_l2_norm,len(train_dataloader)*epoch+i)
 
             running_loss.append(loss.item())
             writer.add_scalar('Training Loss',loss.item(),len(train_dataloader)*epoch+i)
@@ -147,11 +149,11 @@ def train(args):
                     save_as_image(result_dir=train_results_dir,
                                   image_batch=images,
                                   label_batch = labels,
-                                  preds_batch = outputs,
+                                  preds_batch = norm_outputs,
                                   prefix = 'train_epoch_{}_iter_{}'.format(epoch,i),
                                   gpu_id = args.gpu_id)
 
-                    mean_train_dice = calculate_dice_similairity(seg=outputs,gt=labels)
+                    mean_train_dice = calculate_dice_similairity(seg=norm_outputs,gt=labels)
 
                     # Calculate validation loss and metrics
                     running_val_loss = []
@@ -168,15 +170,17 @@ def train(args):
 
                         writer.add_scalar('Validation Loss',val_loss.item(),len(val_dataloader)*epoch+val_idx)
 
+                        norm_val_outputs = F.softmax(input=val_outputs,dim=1)
+
                         save_as_image(result_dir=val_results_dir,
                                       image_batch=val_images,
                                       label_batch = val_labels,
-                                      preds_batch = val_outputs,
+                                      preds_batch = norm_val_outputs,
                                       prefix = 'val_epoch_{}_iter_{}_idx_{}'.format(epoch,i,val_idx),
                                       gpu_id = args.gpu_id)
 
 
-                        val_dice_scores.append(calculate_dice_similairity(seg=val_outputs,gt=val_labels))
+                        val_dice_scores.append(calculate_dice_similairity(seg=norm_val_outputs,gt=val_labels))
 
                     mean_train_loss = np.mean(np.array(running_loss))
                     mean_val_loss = np.mean(np.array(running_val_loss))

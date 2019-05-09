@@ -6,7 +6,7 @@ Functions to calculate metrics
 import numpy as np
 import torch
 
-def calculate_dice_similairity(seg,gt):
+def calculate_dice_similairity(seg,gt,gpu_id=0):
     """
     Function that calculates the dice similarity co-efficient
     over the entire batch
