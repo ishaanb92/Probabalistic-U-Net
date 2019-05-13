@@ -16,7 +16,7 @@ from math import pow
 
 class UNet(nn.Module):
 
-    def __init__(self,image_size=128,n_channels=1,base_filter_num=64,num_blocks=4,num_classes=5):
+    def __init__(self,image_size=128,n_channels=1,base_filter_num=64,num_blocks=4,num_classes=5,use_bn=False):
         """
         PyTorch class definition for the U-Net architecture for image segmentation
 
@@ -33,6 +33,7 @@ class UNet(nn.Module):
         """
         super(UNet,self).__init__()
 
+        self.use_bn = use_bn
         self.output_shape = (int(image_size),int(image_size))
         self.contracting_path = nn.ModuleList()
         self.expanding_path = nn.ModuleList()

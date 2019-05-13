@@ -9,7 +9,7 @@ import torch.nn.functional as F
 
 
 class EncoderBlock(nn.Module):
-    def __init__(self,filter_num=64,in_channels=1):
+    def __init__(self,filter_num=64,in_channels=1,use_bn=False):
         """
         Instances the Encoder block that forms a part of a U-Net
         Parameters:
@@ -21,20 +21,30 @@ class EncoderBlock(nn.Module):
 
         """
         super(EncoderBlock,self).__init__()
+        self.use_bn = use_bn
         self.filter_num = int(filter_num)
         self.in_channels = int(in_channels)
         self.conv1 = nn.Conv2d(in_channels=self.in_channels,out_channels=self.filter_num,kernel_size=3)
         self.conv2 = nn.Conv2d(in_channels=self.filter_num,out_channels=self.filter_num,kernel_size=3)
+        if self.use_bn is True:
+            self.bn_op = nn.BatchNorm2d(num_features=self.filer_num)
 
     def forward(self,x):
         x = F.relu(self.conv1(x))
+
+        if self.use_bn is True:
+            x = self.bn_op(x)
+
         x = F.relu(self.conv2(x))
-        out = F.relu(self.conv2(x))
-        return out
+
+        if self.use_bn is True:
+            x = self.bn_op(x)
+
+        return x
 
 
 class DecoderBlock(nn.Module):
-    def __init__(self,in_channels,concat_layer_depth,filter_num,interpolate=False):
+    def __init__(self,in_channels,concat_layer_depth,filter_num,interpolate=False,use_bn=False):
         """
         Decoder block used in the U-Net
 
@@ -63,8 +73,8 @@ class DecoderBlock(nn.Module):
             # Upsample via transposed convolution (know to produce artifacts)
             self.up_sample = nn.ConvTranspose2d(in_channels=self.in_channels,out_channels=self.in_channels,kernel_size=2)
 
+        self.down_sample = EncoderBlock(in_channels=self.in_channels+self.concat_layer_depth,filter_num=self.filter_num,use_bn=use_bn)
 
-        self.down_sample = EncoderBlock(in_channels=self.in_channels+self.concat_layer_depth,filter_num=self.filter_num)
 
     def forward(self,x,skip_layer):
         up_sample_out = F.relu(self.up_sample(x))

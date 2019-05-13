@@ -23,6 +23,7 @@ def build_parser():
     parser.add_argument('--epochs',type=int,help='Training epochs',default=100)
     parser.add_argument('--gpu_id',type=int,help='Supply the GPU ID (0: Titan Xp, 1: Quadro P1000). In case a GPU is unavilable, code can be run on a CPU by providing a negative number',default= 0)
     parser.add_argument('--renew',action='store_true',help='If true, older checkpoints are deleted')
+    parser.add_argument('--batch_norm',action='store_true',help='If true, UNet uses batch-norm')
     parser.add_argument('--checkpoint_dir',type=str,help='Directory to save model parameters',default='/home/ishaan/Work/unet/Probabalistic-U-Net/checkpoints')
     parser.add_argument('--log_dir',type=str,help='Directory to store tensorboard logs',default='./logs')
     parser.add_argument('--seed',type=int,help='Fix seed for reproducibility',default=42)
@@ -60,17 +61,26 @@ def train(args):
                                 num_workers = 4)
 
 
-    train_results_dir = os.path.join(args.log_dir,'visualizations','train_preds')
-    val_results_dir = os.path.join(args.log_dir,'visualizations','val_preds')
 
     #Instance the UNet model and optimizer
-    model = UNet(image_size=256,num_classes=5)
+    model = UNet(image_size=256,num_classes=5,use_bn=args.batch_norm)
     optimizer = optim.Adam(params=model.parameters(),lr=args.lr)
+
+
+    if args.batch_norm is True:
+        checkpoint_dir = os.path.join(args.checkpoint_dir,'run_lr_{}_with_bn'.format(args.lr))
+        log_dir = os.path.join(args.log_dir,'logs_lr_{}_with_bn'.format(args.lr))
+    else:
+        checkpoint_dir = os.path.join(args.checkpoint_dir,'run_lr_{}_no_bn'.format(args.lr))
+        log_dir = os.path.join(args.log_dir,'logs_lr_{}_no_bn'.format(args.lr))
+
+    train_results_dir = os.path.join(log_dir,'output_training')
+    val_results_dir = os.path.join(log_dir,'output_validation')
 
     #Delete/load old checkpoints
     if args.renew is True:
         try:
-            shutil.rmtree(args.checkpoint_dir)
+            shutil.rmtree(checkpoint_dir)
         except FileNotFoundError:
             pass
 
@@ -84,10 +94,11 @@ def train(args):
         except FileNotFoundError:
             pass
 
-        os.makedirs(args.checkpoint_dir)
+        os.makedirs(checkpoint_dir)
         os.makedirs(train_results_dir)
         os.makedirs(val_results_dir)
         epoch_saved = 0
+        model.train()
 
     else:
         model,optimizer,epoch_saved= load_model(model=model,
@@ -112,7 +123,7 @@ def train(args):
     criterion = nn.CrossEntropyLoss()
 
     # Set up logging
-    writer = SummaryWriter(os.path.join(args.log_dir,'exp_{}'.format(args.lr)))
+    writer = SummaryWriter(os.path.join(log_dir,'tensorboard'))
 
     # Start the training loop
     running_loss = []
@@ -157,6 +168,7 @@ def train(args):
                     running_val_loss = []
                     val_dice_scores = []
                     for val_idx,val_data in enumerate(val_dataloader):
+
                         val_images,val_labels = val_data['image'].to(device).float(),val_data['label'].to(device).float()
 
                         val_targets = torch.argmax(val_labels,dim=1)
@@ -170,12 +182,13 @@ def train(args):
 
                         norm_val_outputs = F.softmax(input=val_outputs,dim=1)
 
-                        save_as_image(result_dir=val_results_dir,
-                                      image_batch=val_images,
-                                      label_batch = val_labels,
-                                      preds_batch = threshold_predictions(norm_val_outputs),
-                                      prefix = 'val_epoch_{}_iter_{}_idx_{}'.format(epoch,i,val_idx),
-                                      gpu_id = args.gpu_id)
+                        if val_idx%10 == 0:
+                            save_as_image(result_dir=val_results_dir,
+                                          image_batch=val_images,
+                                          label_batch = val_labels,
+                                          preds_batch = threshold_predictions(norm_val_outputs),
+                                          prefix = 'val_epoch_{}_iter_{}_idx_{}'.format(epoch,i,val_idx),
+                                          gpu_id = args.gpu_id)
 
 
                         val_dice_scores.append(calculate_dice_similairity(seg=norm_val_outputs,gt=val_labels))
@@ -191,8 +204,9 @@ def train(args):
 
                     running_loss = []
 
-        #Save model every epoch
-        save_model(model=model,optimizer=optimizer,epoch=epoch,checkpoint_dir=args.checkpoint_dir)
+        #Save model every 5 epochs
+        if epoch%5 == 0:
+            save_model(model=model,optimizer=optimizer,epoch=epoch,checkpoint_dir=checkpoint_dir)
 
     writer.close()
 
