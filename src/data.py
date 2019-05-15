@@ -10,6 +10,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 import torchvision.transforms.functional as TF
 import glob
+from gryds import Grid,Interpolator,BSplineTransformation
 from collections import OrderedDict
 from collections import Counter
 import shutil
@@ -22,11 +23,12 @@ from scipy.misc import imresize
 NUM_TRAIN_PATIENTS=15
 
 class ChaosLiverMR(Dataset):
-    def __init__(self,root_dir='./data',image_size=256,renew=True,train=True):
+    def __init__(self,root_dir='./data',image_size=256,renew=True,train=True,num_classes=5):
         self.data_dir = os.path.join(root_dir,'CHAOS_data')
         self.save_dir = root_dir
         self.train = train
         self.image_size = image_size
+        self.num_classes = num_classes
 
         #Init various directory paths
         self.train_dir = os.path.join(self.save_dir,'train_data')
@@ -146,23 +148,74 @@ class ChaosLiverMR(Dataset):
 
         return class_map
 
-    def transform_image(self,image):
+    def transform_image(self,image,label):
         """
         Perform image transformations before it is
         fed to the neural network
 
+        In addition to stndard resize and rescaling, we
+        use the gryds python package to perform elastic
+        deformable transformations
+
         Parameters:
-            image (numpy ndarray or PyTorch tensor) : Image to be transformed
+            image (numpy ndarray) : Image to be transformed
+            label (numpy ndarray) : Label to be transformed
 
         Returns:
-            image (Pytorch tensor) : Format accepted by torch.nn ops
+            image (numpy ndarray) : Format accepted by torch.nn ops
+            label (numpy ndarray) : Transformed label
 
         """
 
+        if self.train is True:
+            if np.random.binomial(n=1,p=0.8) == 1: # Biased coin toss decides if elastic deformation needs to be applied
+                image,label = self.bspline_transform(image,label,std=0.001)
+
+        # Reshape for PIL conversion
+        # We need to convert the arrays into the PIL format
+        # because PyTorch transforms like 'Resize' etc.
+        # operate on PIL format arrays
+        image = image.reshape((image.shape[0],image.shape[1],1))
+        # PIL + Resize for the image
         image = TF.to_pil_image(image)
         image = TF.resize(image,size=self.image_size)
         image = TF.to_tensor(image)
-        return image
+
+        return image,label
+
+    def bspline_transform(self,image,label,std=0.1):
+        """
+        Use the gryds package to perform bspline transforms on images and
+        labels as a form of data augmentation
+
+        Parameters:
+            image (numpy ndarray) : Image to be transformed
+            label (numpy ndarray) : 2D numpy array where l(x,y) = class_id(x,y)
+
+        Returns:
+            image (numpy ndarray) : Transformed image
+            label (numpy ndarray): Transformed label
+
+        """
+
+        disp_i = np.random.normal(scale=std,size=(3,3))
+        disp_j = np.random.normal(scale=std,size=(3,3))
+        bspline_transform = BSplineTransformation([disp_i,disp_j])
+
+        image_interpolator = Interpolator(image)
+        deformed_image = image_interpolator.transform(bspline_transform)
+
+        label_interpolator = Interpolator(label)
+        deformed_label = np.array(label_interpolator.transform(bspline_transform),dtype=np.uint8)
+
+        # Conversion to uint8 after the b-spline transform, pushes certain l(x,y)
+        # to self.num_classes. Since allowed values lie in range [0,self.num_classes)
+        # while creating the binary map, some locations sum up to 0 along the class axis
+        # Implementing this kind of "floor" function, seems to fix this problem
+        deformed_label = np.where(deformed_label>=self.num_classes,(self.num_classes-1),deformed_label)
+
+        return deformed_image,deformed_label
+
 
     def __getitem__(self,index):
 
@@ -174,21 +227,16 @@ class ChaosLiverMR(Dataset):
         img = imageio.imread(img_path)
         label = imageio.imread(label_path)
 
-        # Reshape for PIL conversion
-        # We need to convert the arrays into the PIL format
-        # because PyTorch transforms like 'Resize' etc.
-        # operate on PIL format arrays
-        img = img.reshape((img.shape[0],img.shape[1],1))
+        sample = {'image':img,'label': np.zeros((self.num_classes,self.image_size,self.image_size))}
+
+        sample['image'],label= self.transform_image(image=sample['image'],label=label)
+
+
         class_maps = self.create_binary_class_maps(label)
-        num_classes = class_maps.shape[0]
 
-        sample = {'image':img,'label': np.zeros((num_classes,self.image_size,self.image_size))}
-
-        sample['image'] = self.transform_image(sample['image'])
-
-        for class_id in range(num_classes):
+        for class_id in range(self.num_classes):
             #FIXME : Deprecation warning for imresize, fix this soon
-            sample['label'][class_id] = np.array(imresize(class_maps[class_id,:,:],size=(self.image_size,self.image_size)),dtype=np.uint8)
+            sample['label'][class_id,:,:]= np.array(imresize(class_maps[class_id,:,:],size=(self.image_size,self.image_size)),dtype=np.uint8)
 
         # Make sure that values in the label matrix along class axis (first dimenstion) sum up to 1
         np.testing.assert_array_equal(x=np.array(np.sum(sample['label'],axis=0),dtype=np.uint8),
