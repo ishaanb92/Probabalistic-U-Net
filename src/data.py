@@ -50,6 +50,9 @@ class ChaosLiverMR(Dataset):
         """
         Split patients into training and validation sets
 
+        Parameters:
+            shuffle (bool) : If true, creates a fresh train-val split
+
         """
 
         patient_ids = [patient_dir.split('_')[-1] for patient_dir in os.listdir(self.data_dir)]
@@ -151,9 +154,9 @@ class ChaosLiverMR(Dataset):
         Perform image transformations before it is
         fed to the neural network
 
-        In addition to stndard resize and rescaling, we
-        use the gryds python package to perform elastic
-        deformable transformations
+        In addition to standard resize and intesity scaling, 
+        we use the gryds python package to perform elastic
+        deformable transformations on the image and label
 
         Parameters:
             image (numpy ndarray) : Image to be transformed
@@ -164,10 +167,13 @@ class ChaosLiverMR(Dataset):
             label (numpy ndarray) : Transformed label
 
         """
+        
+        # Resize label to shape (self.image_size,self.image_size)
+        label = imresize(arr=label,size=(self.image_size,self.image_size),interp='nearest')
 
         if self.train is True:
             if np.random.binomial(n=1,p=0.8) == 1: # Biased coin toss decides if elastic deformation needs to be applied
-                image,label = self.bspline_transform(image,label,std=0.001)
+                image,label = self.bspline_transform(image,label,sigma=0.001)
 
         # Reshape for PIL conversion
         # We need to convert the arrays into the PIL format
@@ -181,7 +187,7 @@ class ChaosLiverMR(Dataset):
 
         return image,label
 
-    def bspline_transform(self,image,label,std=0.1):
+    def bspline_transform(self,image,label,mu=0.0,sigma=0.1):
         """
         Use the gryds package to perform bspline transforms on images and
         labels as a form of data augmentation
@@ -189,6 +195,8 @@ class ChaosLiverMR(Dataset):
         Parameters:
             image (numpy ndarray) : Image to be transformed
             label (numpy ndarray) : 2D numpy array where l(x,y) = class_id(x,y)
+            mu (float) : Mean parameter to sample grid displacements
+            sigma (float) : Standard dev. parameter to sample grid displacements
 
         Returns:
             image (numpy ndarray) : Transformed image
@@ -196,21 +204,19 @@ class ChaosLiverMR(Dataset):
 
         """
 
-        disp_i = np.random.normal(scale=std,size=(3,3))
-        disp_j = np.random.normal(scale=std,size=(3,3))
+        disp_i = np.random.normal(loc=mu,scale=sigma,size=(3,3))
+        disp_j = np.random.normal(loc=mu,scale=sigma,size=(3,3))
+        
         bspline_transform = BSplineTransformation([disp_i,disp_j])
+
 
         image_interpolator = Interpolator(image)
         deformed_image = image_interpolator.transform(bspline_transform)
 
-        label_interpolator = Interpolator(label)
-        deformed_label = label_interpolator.transform(bspline_transform,mode='nearest')
-
-        # Conversion to uint8 after the b-spline transform, pushes certain l(x,y)
-        # to self.num_classes. Since allowed values lie in range [0,self.num_classes)
-        # while creating the binary map, some locations sum up to 0 along the class axis
-        # Implementing this kind of "floor" function, seems to fix this problem
-        deformed_label = np.where(deformed_label>=self.num_classes,(self.num_classes-1),deformed_label)
+        # Order = 0 => Nearest neighbour interpolation
+        # This makes sense for class-map labels
+        label_interpolator = Interpolator(label,order=0)
+        deformed_label = label_interpolator.transform(bspline_transform)
 
         return deformed_image,deformed_label
 
@@ -227,14 +233,9 @@ class ChaosLiverMR(Dataset):
 
         sample = {'image':img,'label': np.zeros((self.num_classes,self.image_size,self.image_size))}
 
-        sample['image'],label= self.transform_image(image=sample['image'],label=label)
+        sample['image'],label = self.transform_image(image=sample['image'],label=label)
 
-
-        class_maps = self.create_binary_class_maps(label)
-
-        for class_id in range(self.num_classes):
-            #FIXME : Deprecation warning for imresize, fix this soon
-            sample['label'][class_id,:,:]= np.array(imresize(class_maps[class_id,:,:],size=(self.image_size,self.image_size),interp='nearest'),dtype=np.uint8)
+        sample['label'] = self.create_binary_class_maps(label)
 
         # Make sure that values in the label matrix along class axis (first dimenstion) sum up to 1
         np.testing.assert_array_equal(x=np.array(np.sum(sample['label'],axis=0),dtype=np.uint8),
