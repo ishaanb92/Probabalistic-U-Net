@@ -123,7 +123,8 @@ class ChaosLiverMR(Dataset):
             data_dir = self.val_dir
 
         if os.path.exists(data_dir) is False:
-            print('Train/validation data directories do no exist. Please set the renew argument to True while instancing the class')
+            print('Train/validation data directories do no exist.'
+                  'Please set the renew argument to True while instancing the class')
             sys.exit()
 
         self.image_paths = glob.glob(os.path.join(data_dir,'images','*.png'))
@@ -138,14 +139,11 @@ class ChaosLiverMR(Dataset):
         """
         Take a label image having pixel values from 0-4
         and creates 5 binary class maps
-
         """
-
         class_map = np.zeros((num_classes,label.shape[0],label.shape[1]),dtype=np.uint8)
         for class_id in range(num_classes):
             class_mask = np.where(label==class_id,1,0)
             class_map[class_id,:,:] = class_mask
-
         return class_map
 
     def transform_image(self,image,label):
@@ -162,7 +160,7 @@ class ChaosLiverMR(Dataset):
             label (numpy ndarray) : Label to be transformed
 
         Returns:
-            image (numpy ndarray) : Format accepted by torch.nn ops
+            image (Torch Tensor) : Transformed image
             label (numpy ndarray) : Transformed label
 
         """
@@ -206,7 +204,7 @@ class ChaosLiverMR(Dataset):
         deformed_image = image_interpolator.transform(bspline_transform)
 
         label_interpolator = Interpolator(label)
-        deformed_label = np.array(label_interpolator.transform(bspline_transform),dtype=np.uint8)
+        deformed_label = label_interpolator.transform(bspline_transform,mode='nearest')
 
         # Conversion to uint8 after the b-spline transform, pushes certain l(x,y)
         # to self.num_classes. Since allowed values lie in range [0,self.num_classes)
@@ -236,7 +234,7 @@ class ChaosLiverMR(Dataset):
 
         for class_id in range(self.num_classes):
             #FIXME : Deprecation warning for imresize, fix this soon
-            sample['label'][class_id,:,:]= np.array(imresize(class_maps[class_id,:,:],size=(self.image_size,self.image_size)),dtype=np.uint8)
+            sample['label'][class_id,:,:]= np.array(imresize(class_maps[class_id,:,:],size=(self.image_size,self.image_size),interp='nearest'),dtype=np.uint8)
 
         # Make sure that values in the label matrix along class axis (first dimenstion) sum up to 1
         np.testing.assert_array_equal(x=np.array(np.sum(sample['label'],axis=0),dtype=np.uint8),
@@ -252,7 +250,7 @@ class ChaosLiverMR(Dataset):
 
 
 
-if __name__ == '__main__':
+if __name__=='__main__':
     # Basic sanity for the dataset class -- Run this when making any change to this code
 
     chaos_dataset = ChaosLiverMR(root_dir='/home/ishaan/probablistic_u_net/data',
@@ -285,7 +283,8 @@ if __name__ == '__main__':
 
             print('Max pixel value in image : {}'.format(np.amax(img)))
 
-            #PyTorch returns image/label matrices in the range 0-1 with np.float64 format (through some internal [and undocumented] magic!)
+            # PyTorch returns image/label matrices in the range 0-1 with np.float64 format
+            # (through some internal [and undocumented] magic!)
             imageio.imwrite(os.path.join(test_batch_dir,'img_{}_{}.jpg'.format(iters,batch_idx)),convert_to_grayscale(img[0,:,:]))
 
             for class_id in range(label.shape[0]):
