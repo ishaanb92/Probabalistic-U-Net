@@ -22,12 +22,12 @@ def build_parser():
     parser.add_argument('--data_dir', type=str, help='Directory where train and val data exist',
                         default='/home/ishaan/Work/unet/Probabalistic-U-Net/data')
 
-    parser.add_argument('--batch_size',type=int, help='Training batch size',default=16)
+    parser.add_argument('--batch_size', type=int, help='Training batch size',default=16)
     parser.add_argument('--epochs', type=int, help='Training epochs', default=100)
 
     parser.add_argument('--gpu_id', type=int, help='Supply the GPU ID (0: Titan Xp, 1: Quadro P1000). '
-                                                 'In case a GPU is unavilable, code can be run on a CPU '
-                                                 'by providing a negative number',default= 0)
+                                                   'In case a GPU is unavilable, code can be run on a CPU '
+                                                   'by providing a negative number',default= 0)
 
     parser.add_argument('--renew', action='store_true', help='If true, older checkpoints are deleted')
     parser.add_argument('--batch_norm', action='store_true', help='If true, UNet uses batch-norm')

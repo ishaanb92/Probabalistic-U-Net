@@ -235,10 +235,10 @@ def threshold_predictions(preds):
     predictions
 
     Parameters:
-        preds (Torch tensor) : Tensor of outputs (N x C x H x W)
+        preds (Torch tensor) : Tensor of softmax outputs (N x C x H x W)
 
     Returns:
-        thresh_preds (Torch tensor) : Tensor of thresholded outputs
+        thresh_preds (Torch tensor) : Tensor of thresholded outputs (N x C x H x W)
 
     """
 
