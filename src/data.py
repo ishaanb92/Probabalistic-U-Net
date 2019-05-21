@@ -1,22 +1,16 @@
-from __future__ import print_function, division
 import os
-import torch
 import sys
-sys.path.append(os.path.join(os.getcwd(),'src'))
-import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms, utils
 import torchvision.transforms.functional as TF
-import glob
-from gryds import Grid,Interpolator,BSplineTransformation
-from collections import OrderedDict
-from collections import Counter
 import shutil
 import imageio
 import random
 import nrrd
+from __future__ import print_function, division
+import glob
+from gryds import Interpolator,BSplineTransformation
+sys.path.append(os.path.join(os.getcwd(),'src'))
 from utils import convert_to_grayscale
 from scipy.misc import imresize
 
@@ -187,7 +181,8 @@ class ChaosLiverMR(Dataset):
 
         return image,label
 
-    def bspline_transform(self,image,label,mu=0.0,sigma=0.1):
+    @staticmethod
+    def bspline_transform(image, label, mu=0.0, sigma=0.1):
         """
         Use the gryds package to perform bspline transforms on images and
         labels as a form of data augmentation
