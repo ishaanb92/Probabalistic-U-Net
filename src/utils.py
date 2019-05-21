@@ -81,7 +81,7 @@ def save_as_image(result_dir = None,image_batch=None,label_batch=None,preds_batc
 def adjust_dynamic_range(image):
     """
     Images need to saved with uint8 intensity values.
-    The pytorch model internall uses float32 or float64 representation,
+    The pytorch model internally uses float32 or float64 representation,
     leading to lossy compression while saving the image
 
     Reference: https://stackoverflow.com/questions/46689428/convert-np-array-of-type-float64-to-type-uint8-scaling-values

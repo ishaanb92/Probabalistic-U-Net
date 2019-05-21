@@ -207,16 +207,18 @@ class ChaosLiverMR(Dataset):
         disp_i = np.random.normal(loc=mu,scale=sigma,size=(3,3))
         disp_j = np.random.normal(loc=mu,scale=sigma,size=(3,3))
         
-        bspline_transform = BSplineTransformation([disp_i,disp_j])
+        bspline_transform_image = BSplineTransformation(grid=[disp_i,disp_j])
+        bspline_transform_label = BSplineTransformation(grid=[disp_i,disp_j],order=0)
+
 
 
         image_interpolator = Interpolator(image)
-        deformed_image = image_interpolator.transform(bspline_transform)
+        deformed_image = image_interpolator.transform(bspline_transform_image)
 
         # Order = 0 => Nearest neighbour interpolation
         # This makes sense for class-map labels
         label_interpolator = Interpolator(label,order=0)
-        deformed_label = label_interpolator.transform(bspline_transform)
+        deformed_label = label_interpolator.transform(bspline_transform_label)
 
         return deformed_image,deformed_label
 
