@@ -150,10 +150,10 @@ def train(args):
             # See : https://pytorch.org/docs/stable/nn.html#crossentropyloss
             targets = torch.argmax(labels,dim=1)
 
-            optimizer.zero_grad() #Clear gradient buffers
+            optimizer.zero_grad() # Clear gradient buffers
             outputs = model(images)
 
-            loss = criterion(outputs,targets)
+            loss = criterion(outputs, targets)
 
             loss.backward()
             optimizer.step()
@@ -186,7 +186,7 @@ def train(args):
 
                         val_outputs = model(val_images)
 
-                        val_loss = criterion(val_outputs,val_targets)
+                        val_loss = criterion(val_outputs, val_targets)
                         running_val_loss.append(val_loss.item())
 
                         writer.add_scalar('Validation Loss',val_loss.item(),len(val_dataloader)*epoch+val_idx)
@@ -202,15 +202,18 @@ def train(args):
                                           gpu_id=args.gpu_id)
 
 
-                        val_dice_scores.append(calculate_dice_similairity(seg=norm_val_outputs,gt=val_labels))
+                        val_dice_scores.append(calculate_dice_similairity(seg=norm_val_outputs, gt=val_labels))
 
                     mean_train_loss = np.mean(np.array(running_loss))
                     mean_val_loss = np.mean(np.array(running_val_loss))
-                    mean_val_dice = np.mean(np.array(val_dice_scores),axis=None)
+                    mean_val_dice = np.mean(np.array(val_dice_scores), axis=None)
 
-                    print('[Epoch {} Iteration {}] Training loss : {} Validation loss : {}'.format(epoch,i,mean_train_loss,mean_val_loss))
-                    print('[Epoch {} Iteration {}] (Training) Mean Dice Metric : {}'.format(epoch,i,mean_train_dice))
-                    print('[Epoch {} Iteration {}] (Validation) Mean Dice Metric : {}'.format(epoch,i,mean_val_dice))
+                    print(f'[Epoch {epoch} Iteration {i}] '
+                          f'Training loss : {mean_train_loss}'
+                          f'Validation loss : {mean_val_loss}')
+
+                    print('[Epoch {} Iteration {}] (Training) Mean Dice Metric : {}'.format(epoch, i, mean_train_dice))
+                    print('[Epoch {} Iteration {}] (Validation) Mean Dice Metric : {}'.format(epoch, i, mean_val_dice))
                     print('\n')
 
                     running_loss = []

@@ -9,6 +9,7 @@ Packages used and their versions:
 * Numpy 1.15.4
 * imageio 2.5.0
 * Tensorflow 1.13.1 (To use [tensorboardX](https://github.com/lanpa/tensorboardX) for viz)
+* [gryds](https://github.com/tueimage/gryds) for augmenting data with deformations
 
 
 This project is a WIP. The goal is to have a stable implementation of the [Probablistic U-Net](https://arxiv.org/abs/1806.05034)
