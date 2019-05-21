@@ -71,8 +71,11 @@ def train(args):
 
 
     # Instance the UNet model and optimizer
-    model = UNet(image_size=256,num_classes=5,use_bn=args.batch_norm)
-    optimizer = optim.Adam(params=model.parameters(),lr=args.lr)
+    model = UNet(image_size=256,
+                 num_classes=5,
+                 use_bn=args.batch_norm)
+
+    optimizer = optim.Adam(params=model.parameters(), lr=args.lr)
 
 
     if args.batch_norm is True:
@@ -109,17 +112,17 @@ def train(args):
         model.train()
 
     else:
-        model,optimizer,epoch_saved= load_model(model=model,
-                                                optimizer = optimizer,
-                                                checkpoint_dir=args.checkpoint_dir,
-                                                training=True)
+        model, optimizer, epoch_saved= load_model(model=model,
+                                                  optimizer = optimizer,
+                                                  checkpoint_dir=args.checkpoint_dir,
+                                                  training=True)
         print('Loading model and optimizer state. Last saved epoch = {}'.format(epoch_saved))
 
     # The optimizer and model must reside on the same device.
     # optimizer.to(device) method does not exist, therefore for an
     # optimizer loaded from disk, we need to manually copy it over.
     # See: https://github.com/pytorch/pytorch/issues/2830
-    if args.gpu_id>=0:
+    if args.gpu_id >= 0:
         for state in optimizer.state.values():
             for k, v in state.items():
                 if torch.is_tensor(v):

@@ -6,11 +6,8 @@ Author: Ishaan Bhat
 i.r.bhat@umcutrecht.nl
 
 """
-
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
 from blocks import *
 from math import pow
 
@@ -42,49 +39,56 @@ class UNet(nn.Module):
         self.n_channels = int(n_channels)
         self.n_classes = int(num_classes)
         self.base_filter_num = int(base_filter_num)
-        self.enc_layer_depths = [] #Keep track of the output depths of each encoder block
+        self.enc_layer_depths = [] # Keep track of the output depths of each encoder block
 
         for block_id in range(num_blocks):
-            enc_block_filter_num = pow(2,block_id)*self.base_filter_num #Output depth of current encoder stage
+            enc_block_filter_num = pow(2,block_id)*self.base_filter_num # Output depth of current encoder stage
             if block_id == 0:
                 enc_in_channels = self.n_channels
             else:
                 enc_in_channels = enc_block_filter_num//2
             self.enc_layer_depths.append(enc_block_filter_num)
-            self.contracting_path.append(EncoderBlock(in_channels=enc_in_channels,filter_num=enc_block_filter_num))
+            self.contracting_path.append(EncoderBlock(in_channels=enc_in_channels,
+                                                      filter_num=enc_block_filter_num,
+                                                      use_bn=self.use_bn))
 
-        #Bottleneck layer
+        # Bottleneck layer
         bottle_neck_filter_num = enc_block_filter_num*2
         bottle_neck_in_channels = enc_block_filter_num
-        self.bottle_neck_layer = EncoderBlock(filter_num=bottle_neck_filter_num,in_channels=bottle_neck_in_channels)
+        self.bottle_neck_layer = EncoderBlock(filter_num=bottle_neck_filter_num,
+                                              in_channels=bottle_neck_in_channels,
+                                              use_bn=self.use_bn)
 
-        #Decoder Path
+        # Decoder Path
         for block_id in range(num_blocks):
             dec_in_channels = bottle_neck_filter_num//pow(2,block_id)
-            self.expanding_path.append(DecoderBlock(in_channels=dec_in_channels,filter_num=self.enc_layer_depths[-1-block_id],concat_layer_depth=self.enc_layer_depths[-1-block_id],interpolate=True))
+            self.expanding_path.append(DecoderBlock(in_channels=dec_in_channels,
+                                                    filter_num=self.enc_layer_depths[-1-block_id],
+                                                    concat_layer_depth=self.enc_layer_depths[-1-block_id],
+                                                    interpolate=True))
 
-        #Output Layer
+        # Output Layer
         self.output = nn.Conv2d(in_channels=int(self.enc_layer_depths[0]),out_channels= self.n_classes, kernel_size=1)
 
     def forward(self,x):
-        #Encoder
+        # Encoder
         enc_outputs = []
         for enc_op in self.contracting_path:
             x = enc_op(x)
             enc_outputs.append(x)
             x = nn.MaxPool2d(kernel_size=2)(x)
 
-        #Bottle-neck layer
+        # Bottle-neck layer
         x = self.bottle_neck_layer(x)
 
-        #Decoder
+        # Decoder
         for block_id,dec_op in enumerate(self.expanding_path):
             x = dec_op(x,enc_outputs[-1-block_id])
 
-        #Output
+        # Output
         x = self.output(x)
 
-        #Interpolate to match the size of seg-map
+        # Interpolate to match the size of seg-map
         out = F.interpolate(input=x,size=self.output_shape,mode='bilinear',align_corners=True)
 
         out = F.relu(out)
