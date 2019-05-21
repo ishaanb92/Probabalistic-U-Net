@@ -1,3 +1,4 @@
+from __future__ import print_function, division
 import os
 import sys
 import numpy as np
@@ -7,7 +8,6 @@ import shutil
 import imageio
 import random
 import nrrd
-from __future__ import print_function, division
 import glob
 from gryds import Interpolator,BSplineTransformation
 sys.path.append(os.path.join(os.getcwd(),'src'))

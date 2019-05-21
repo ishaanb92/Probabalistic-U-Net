@@ -80,15 +80,15 @@ def train(args):
 
     if args.batch_norm is True:
         checkpoint_dir = os.path.join(args.checkpoint_dir,'run_lr_{}_with_bn'.format(args.lr))
-        log_dir = os.path.join(args.log_dir,'logs_lr_{}_with_bn'.format(args.lr))
+        log_dir = os.path.join(args.log_dir, 'logs_lr_{}_with_bn'.format(args.lr))
     else:
         checkpoint_dir = os.path.join(args.checkpoint_dir,'run_lr_{}_no_bn'.format(args.lr))
-        log_dir = os.path.join(args.log_dir,'logs_lr_{}_no_bn'.format(args.lr))
+        log_dir = os.path.join(args.log_dir, 'logs_lr_{}_no_bn'.format(args.lr))
 
-    train_results_dir = os.path.join(log_dir,'output_training')
-    val_results_dir = os.path.join(log_dir,'output_validation')
+    train_results_dir = os.path.join(log_dir, 'output_training')
+    val_results_dir = os.path.join(log_dir, 'output_validation')
 
-    # Delete/load old checkpoints
+    # Delete or load old checkpoints based on the 'renew' flag
     if args.renew is True:
         try:
             shutil.rmtree(checkpoint_dir)
@@ -105,7 +105,13 @@ def train(args):
         except FileNotFoundError:
             pass
 
+        try:
+            shutil.rmtree(log_dir)
+        except FileNotFoundError:
+            pass
+
         os.makedirs(checkpoint_dir)
+        os.makedirs(log_dir)
         os.makedirs(train_results_dir)
         os.makedirs(val_results_dir)
         epoch_saved = 0
@@ -113,8 +119,8 @@ def train(args):
 
     else:
         model, optimizer, epoch_saved= load_model(model=model,
-                                                  optimizer = optimizer,
-                                                  checkpoint_dir=args.checkpoint_dir,
+                                                  optimizer=optimizer,
+                                                  checkpoint_dir=checkpoint_dir,
                                                   training=True)
         print('Loading model and optimizer state. Last saved epoch = {}'.format(epoch_saved))
 
