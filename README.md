@@ -29,8 +29,8 @@ TODO
 * <strike>Track loss on train data v/s loss on val data during training</strike> 
 * <strike>Display images,predicted segmentations and ground truth for better debugging and performance analysis</strike>
 *  <strike>Creation of groud truth segmentation maps from label images needs to be fixed. For correct normalization (across all classes), a background class is needed</strike> 
-* Additional data augmentation using [gryds](https://github.com/tueimage/gryds)
-* Hyper-parameter/architecture tuning
+* <strike>Additional data augmentation using [gryds](https://github.com/tueimage/gryds)</strike>
+* <strike>Hyper-parameter/architecture tuning</strike>
 * Implementing Prior and Posterior nets for Prob. U-Net
 
 Code has been tested on Python 3.7.4
