@@ -118,7 +118,7 @@ def train(args):
         model.train()
 
     else:
-        model, optimizer, epoch_saved= load_model(model=model,
+        model, optimizer, epoch_saved=load_model(model=model,
                                                   optimizer=optimizer,
                                                   checkpoint_dir=checkpoint_dir,
                                                   training=True)
@@ -169,33 +169,36 @@ def train(args):
 
             running_loss.append(loss.item())
             writer.add_scalar('Training Loss',loss.item(),len(train_dataloader)*epoch+i)
+
             if i%50 == 0:
                 with torch.no_grad():
-                    # Visualize results
                     save_as_image(result_dir=train_results_dir,
                                   image_batch=images,
-                                  label_batch = labels,
-                                  preds_batch = threshold_predictions(norm_outputs),
-                                  prefix = 'train_epoch_{}_iter_{}'.format(epoch,i),
-                                  gpu_id = args.gpu_id)
+                                  label_batch=labels,
+                                  preds_batch=threshold_predictions(norm_outputs),
+                                  prefix='train_epoch_{}_iter_{}'.format(epoch,i),
+                                  gpu_id=args.gpu_id)
 
                     mean_train_dice = calculate_dice_similairity(seg=norm_outputs,gt=labels)
 
                     # Calculate validation loss and metrics
                     running_val_loss = []
                     val_dice_scores = []
+
+                    # Switch to 'eval' mode for things like BN/Dropout change accordingly
+                    model.eval()
                     for val_idx, val_data in enumerate(val_dataloader):
 
-                        val_images,val_labels = val_data['image'].to(device).float(),val_data['label'].to(device).float()
+                        val_images, val_labels = val_data['image'].to(device).float(),val_data['label'].to(device).float()
 
-                        val_targets = torch.argmax(val_labels,dim=1)
+                        val_targets = torch.argmax(val_labels, dim=1)
 
                         val_outputs = model(val_images)
 
                         val_loss = criterion(val_outputs, val_targets)
                         running_val_loss.append(val_loss.item())
 
-                        writer.add_scalar('Validation Loss',val_loss.item(),len(val_dataloader)*epoch+val_idx)
+                        writer.add_scalar('Validation Loss', val_loss.item(),len(val_dataloader)*epoch+val_idx)
 
                         norm_val_outputs = F.softmax(input=val_outputs,dim=1)
 
@@ -214,15 +217,19 @@ def train(args):
                     mean_val_loss = np.mean(np.array(running_val_loss))
                     mean_val_dice = np.mean(np.array(val_dice_scores), axis=None)
 
-                    print(f'[Epoch {epoch} Iteration {i}] '
-                          f'Training loss : {mean_train_loss}'
-                          f'Validation loss : {mean_val_loss}')
+                    print('[Epoch {} Iteration {}] Training loss : {} Validation Loss : {}'.format(epoch,
+                                                                                                   i,
+                                                                                                   mean_train_loss,
+                                                                                                   mean_val_loss))
 
                     print('[Epoch {} Iteration {}] (Training) Mean Dice Metric : {}'.format(epoch, i, mean_train_dice))
                     print('[Epoch {} Iteration {}] (Validation) Mean Dice Metric : {}'.format(epoch, i, mean_val_dice))
                     print('\n')
 
                     running_loss = []
+
+                    # Switch back to training mode
+                    model.train()
 
         # Save model every 5 epochs
         if epoch%5 == 0:
