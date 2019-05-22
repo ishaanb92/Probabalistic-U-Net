@@ -14,6 +14,11 @@ def save_as_image(result_dir = None,image_batch=None,label_batch=None,preds_batc
     as a collection of image grids, each image grid being one image-label-prediction
     triplet from a single member of the batch.
 
+    Row 0 : Original Image
+    Row 1 : True labels for all classes (Background-Liver-Right Kidney-Left Kidney-Spleen)
+    Row 2 : Predicted masks for each of the organs
+    Row 3 : Segmented (per-class) output after applying the mask to the image
+
     Parameters:
         result_dir (str or Path object) : Directory to store the images
         image_batch (torch.Tensor) : Image batch to be saved (batch_size x channels x height x width)
@@ -62,15 +67,17 @@ def save_as_image(result_dir = None,image_batch=None,label_batch=None,preds_batc
         preds = preds_batch[batch_idx,:,:,:]
 
         #Init empty grid as np array
-        image_grid = np.zeros((3*h,n_classes*w,n_channels),dtype=np.uint8)
+        image_grid = np.zeros((4*h,n_classes*w,n_channels),dtype=np.uint8)
 
         #Add image at the top
         image_grid[0:h,0:w,:] = image
 
         #Add grount truth and predicted maps
         for class_id in range(n_classes):
-            image_grid[h:2*h,class_id*w:(class_id+1)*w,0] = labels[:,:,class_id]
-            image_grid[2*h:3*h,class_id*w:(class_id+1)*w,0] = preds[:,:,class_id]
+            image_grid[h:2*h, class_id*w:(class_id+1)*w, 0] = labels[:,:,class_id]
+            image_grid[2*h:3*h, class_id*w:(class_id+1)*w, 0] = preds[:,:,class_id]
+            image_grid[3*h:4*h, class_id*w:(class_id+1)*w, 0] = np.multiply(image[:, :, 0],
+                                                                            np.divide(preds[:, :, class_id], 255))
 
         #Save the image grid
         fname = os.path.join(result_dir,'{}_{}.{}'.format(prefix,batch_idx,fmt))
@@ -185,9 +192,10 @@ def load_model(model=None,optimizer=None,checkpoint_dir=None,training=False):
         epoch = checkpoint['epoch']
         model.train()
     else:
+        epoch = None
         model.eval()
 
-    return model,optimizer,epoch
+    return model, optimizer, epoch
 
 def select_last_checkpoint(file_list):
     """

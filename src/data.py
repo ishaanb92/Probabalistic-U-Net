@@ -132,7 +132,7 @@ class ChaosLiverMR(Dataset):
             self.label_paths.append(os.path.join(data_dir,'labels','lab_{}_{}.png'.format(patient_idx,slice_idx)))
 
 
-    def create_binary_class_maps(self,label,num_classes=5):
+    def create_binary_class_maps(self, label, num_classes=5):
         """
         Take a label image having pixel values from 0-4
         and creates 5 binary class maps
@@ -166,20 +166,21 @@ class ChaosLiverMR(Dataset):
         label = imresize(arr=label,size=(self.image_size,self.image_size),interp='nearest')
 
         if self.train is True:
-            if np.random.binomial(n=1,p=0.8) == 1: # Biased coin toss decides if elastic deformation needs to be applied
-                image,label = self.bspline_transform(image,label,sigma=0.001)
+            # Biased coin toss decides if elastic deformation needs to be applied
+            if np.random.binomial(n=1, p=0.5) == 1:
+                image, label = self.bspline_transform(image, label, sigma=0.001)
 
         # Reshape for PIL conversion
         # We need to convert the arrays into the PIL format
         # because PyTorch transforms like 'Resize' etc.
         # operate on PIL format arrays
-        image = image.reshape((image.shape[0],image.shape[1],1))
+        image = image.reshape((image.shape[0], image.shape[1], 1))
         # PIL + Resize for the image
         image = TF.to_pil_image(image)
-        image = TF.resize(image,size=self.image_size)
+        image = TF.resize(image, size=self.image_size)
         image = TF.to_tensor(image)
 
-        return image,label
+        return image, label
 
     @staticmethod
     def bspline_transform(image, label, mu=0.0, sigma=0.1):

@@ -119,9 +119,10 @@ def train(args):
 
     else:
         model, optimizer, epoch_saved=load_model(model=model,
-                                                  optimizer=optimizer,
-                                                  checkpoint_dir=checkpoint_dir,
-                                                  training=True)
+                                                 optimizer=optimizer,
+                                                 checkpoint_dir=checkpoint_dir,
+                                                 training=True)
+
         print('Loading model and optimizer state. Last saved epoch = {}'.format(epoch_saved))
 
     # The optimizer and model must reside on the same device.
@@ -144,9 +145,9 @@ def train(args):
 
     # Start the training loop
     running_loss = []
-    for epoch in range(epoch_saved,args.epochs):
-        for i,data in enumerate(train_dataloader):
-            images,labels = data['image'].to(device).float(), data['label'].to(device).float()
+    for epoch in range(epoch_saved, args.epochs):
+        for i, data in enumerate(train_dataloader):
+            images, labels = data['image'].to(device).float(), data['label'].to(device).float()
 
             # nn.CrossEntropyLoss() loss-term is meant for multi-class
             # classification. However, instead of a one-hot label,
@@ -186,7 +187,7 @@ def train(args):
                     val_dice_scores = []
 
                     # Switch to 'eval' mode for things like BN/Dropout change accordingly
-                    model.eval()
+                    # model.eval()
                     for val_idx, val_data in enumerate(val_dataloader):
 
                         val_images, val_labels = val_data['image'].to(device).float(),val_data['label'].to(device).float()
@@ -229,7 +230,7 @@ def train(args):
                     running_loss = []
 
                     # Switch back to training mode
-                    model.train()
+                    # model.train()
 
         # Save model every 5 epochs
         if epoch%5 == 0:
