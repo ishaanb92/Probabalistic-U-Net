@@ -8,7 +8,7 @@ import numpy as np
 import os
 import glob
 
-def save_as_image(result_dir = None,image_batch=None,label_batch=None,preds_batch=None,fmt='png',prefix=None,n_channels=1,gpu_id=-1):
+def save_as_image(result_dir = None,image_batch=None,label_batch=None,preds_batch=None,fmt='png',prefix=None, n_channels=1, gpu_id=-1):
     """
     Take a batch of tensors (images, labels and predictions) and save the batch
     as a collection of image grids, each image grid being one image-label-prediction
@@ -26,6 +26,8 @@ def save_as_image(result_dir = None,image_batch=None,label_batch=None,preds_batc
         preds_batch (torch.Tensor) : Model predictions batch to be saved (batch_size x n_classes x height x width)
         fmt (str) : Extension used to save the image
         prefix (str) : Used a prefix in the filename under which the image is saved
+        n_channels (int) : Number of channels in an image (usually 1 or 3)
+        gpu_id (int) : ID of the GPU Pytorch is using. If gpu_id < 0 => CPU is used
 
     Returns:
         None
@@ -35,7 +37,7 @@ def save_as_image(result_dir = None,image_batch=None,label_batch=None,preds_batc
     if os.path.exists(result_dir) is False:
         os.makedirs(result_dir)
 
-    #Convert torch tensors to numpy ndarray
+    # Convert torch tensors to numpy ndarray
     if gpu_id >= 0:
         image_batch = image_batch.cpu().numpy()
         label_batch = label_batch.cpu().numpy()
