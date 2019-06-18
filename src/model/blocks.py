@@ -18,8 +18,6 @@ class EncoderBlock(nn.Module):
                                depth of the output of the enc block
             use_bn (bool) : Batch-norm is performed between convolutions if this flag is True
 
-        Returns:
-            out (torch.Tensor) : Output of operations performed in the block
 
         """
         super(EncoderBlock,self).__init__()
@@ -64,9 +62,6 @@ class DecoderBlock(nn.Module):
             interpolate (bool) : Decides if upsampling needs to performed via interpolation or transposed convolution
             use_bn (bool) : Batch-norm is performed between convolutions if this flag is True
 
-
-        Returns:
-            out (torch.Tensor) : Output of the Decoder block
         """
         # Up-sampling (interpolation or transposed conv) --> EncoderBlock
         super(DecoderBlock,self).__init__()
@@ -123,6 +118,13 @@ class DecoderBlock(nn.Module):
         diffX = skip_layer.size()[3] - up_sample_layer.size()[3]
         padded_up_sample_layer = F.pad(up_sample_layer, (diffX // 2, diffX - diffX//2,diffY // 2, diffY - diffY//2))
         return padded_up_sample_layer
+
+
+# Prior Block
+
+
+# Posterior Block
+
 
 
 

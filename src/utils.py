@@ -7,6 +7,8 @@ import imageio
 import numpy as np
 import os
 import glob
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 def save_as_image(result_dir = None,image_batch=None,label_batch=None,preds_batch=None,fmt='png',prefix=None, n_channels=1, gpu_id=-1):
     """
@@ -68,20 +70,20 @@ def save_as_image(result_dir = None,image_batch=None,label_batch=None,preds_batc
         labels = label_batch[batch_idx,:,:,:]
         preds = preds_batch[batch_idx,:,:,:]
 
-        #Init empty grid as np array
+        # Init empty grid as np array
         image_grid = np.zeros((4*h,n_classes*w,n_channels),dtype=np.uint8)
 
-        #Add image at the top
+        # Add image at the top
         image_grid[0:h,0:w,:] = image
 
-        #Add grount truth and predicted maps
+        # Add grount truth and predicted maps
         for class_id in range(n_classes):
-            image_grid[h:2*h, class_id*w:(class_id+1)*w, 0] = labels[:,:,class_id]
-            image_grid[2*h:3*h, class_id*w:(class_id+1)*w, 0] = preds[:,:,class_id]
+            image_grid[h:2*h, class_id*w:(class_id+1)*w, 0] = labels[:, :, class_id]
+            image_grid[2*h:3*h, class_id*w:(class_id+1)*w, 0] = preds[:, :, class_id]
             image_grid[3*h:4*h, class_id*w:(class_id+1)*w, 0] = np.multiply(image[:, :, 0],
                                                                             np.divide(preds[:, :, class_id], 255))
 
-        #Save the image grid
+        # Save the image grid
         fname = os.path.join(result_dir,'{}_{}.{}'.format(prefix,batch_idx,fmt))
 
         imageio.imwrite(fname,image_grid)
@@ -256,5 +258,51 @@ def threshold_predictions(preds):
     zeros = torch.zeros(preds.shape)
     thresh_preds = torch.where(preds.cpu()>0.5,ones,zeros)
     return thresh_preds
+
+
+def save_prediction_heatmaps(result_dir=None, preds= None, prefix=None, gpu_id=-1, fmt='png'):
+    """
+    Visualize probabilty heatmaps of model prediction instead of the thresholded outputs
+
+    Parameters:
+        result_dir (str or Path object) : Directory to store the images
+        preds (Torch tensor) :  Batch of class probability masks
+        prefix (str) : File name prefix
+        gpu_id (int) : gpu_id < 0 => CPU used
+        fmt (str) : Format to store the image (png by default)
+
+    """
+    if os.path.exists(result_dir) is False:
+        os.makedirs(result_dir)
+
+    if gpu_id>=0:
+        preds = preds.cpu().numpy()
+    else:
+        preds = preds.numpy()
+
+    labels = ['Background', 'Liver', 'Right Kidney', 'Left Kidney', 'Spleen']
+
+    batch_size = preds.shape[0]
+    num_classes = preds.shape[1]
+
+    for idx in range(batch_size):
+        for c in range(num_classes):
+            prob_map = preds[idx, c, :, :]
+            heat_map = sns.heatmap(data=prob_map, vmax=1, vmin=0)
+            fname = '{}_{}_{}.{}'.format(prefix, idx, labels[c], fmt)
+            save_path = os.path.join(result_dir, fname)
+            fig = heat_map.get_figure()
+            fig.savefig(save_path)
+            plt.close(fig)
+
+
+
+
+
+
+
+
+
+
 
 

@@ -170,15 +170,21 @@ def train(args):
 
             running_loss.append(loss.item())
             writer.add_scalar('Training Loss',loss.item(),len(train_dataloader)*epoch+i)
-
             if i%50 == 0:
                 with torch.no_grad():
-                    save_as_image(result_dir=train_results_dir,
+                    save_as_image(result_dir=os.path.join(train_results_dir, 'Segmentations',
+                                                          'Epoch_{}'.format(epoch)),
                                   image_batch=images,
                                   label_batch=labels,
-                                  preds_batch= threshold_predictions(norm_outputs),
-                                  prefix='train_epoch_{}_iter_{}'.format(epoch,i),
+                                  preds_batch=threshold_predictions(norm_outputs),
+                                  prefix='iter_{}'.format(i),
                                   gpu_id=args.gpu_id)
+
+                    save_prediction_heatmaps(result_dir=os.path.join(train_results_dir,'Heatmaps',
+                                                                     'Epoch_{}'.format(epoch)),
+                                             preds=norm_outputs,
+                                             prefix='iter_{}'.format(i),
+                                             gpu_id=args.gpu_id)
 
                     mean_train_dice = calculate_dice_similairity(seg=norm_outputs,gt=labels)
 
@@ -204,13 +210,19 @@ def train(args):
                         norm_val_outputs = F.softmax(input=val_outputs,dim=1)
 
                         if val_idx%10 == 0:
-                            save_as_image(result_dir=val_results_dir,
+                            save_as_image(result_dir=os.path.join(val_results_dir, 'Segmentations',
+                                                                  'Epoch_{}'.format(epoch)),
                                           image_batch=val_images,
                                           label_batch=val_labels,
                                           preds_batch=threshold_predictions(norm_val_outputs),
-                                          prefix='val_epoch_{}_iter_{}_idx_{}'.format(epoch,i,val_idx),
+                                          prefix='iter_{}_idx_{}'.format(i,val_idx),
                                           gpu_id=args.gpu_id)
 
+                            # save_prediction_heatmaps(result_dir=os.path.join(train_results_dir, 'Heatmaps',
+                            #                                                  'Epoch_{}'.format(epoch)),
+                            #                          preds=norm_outputs,
+                            #                          prefix='iter_{}_idx_{}'.format(i, val_idx),
+                            #                          gpu_id=args.gpu_id)
 
                         val_dice_scores.append(calculate_dice_similairity(seg=norm_val_outputs, gt=val_labels))
 
